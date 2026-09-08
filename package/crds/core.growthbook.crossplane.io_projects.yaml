@@ -34,7 +34,9 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: A Project is an example API type.
+        description: |-
+          A Project is a GrowthBook project: the top-level container for features,
+          experiments, and SDK connections.
         properties:
           apiVersion:
             description: |-
@@ -57,12 +59,54 @@ spec:
             description: A ProjectSpec defines the desired state of a Project.
             properties:
               forProvider:
-                description: ProjectParameters are the configurable fields of a Project.
+                description: ProjectParameters are the configurable fields of a GrowthBook
+                  Project.
                 properties:
-                  configurableField:
+                  description:
+                    description: Description is free text shown in the GrowthBook
+                      UI.
+                    maxLength: 10000
                     type: string
+                  name:
+                    description: Name is the human-readable project name.
+                    minLength: 1
+                    type: string
+                  publicId:
+                    description: |-
+                      PublicID is the URL-safe slug (lowercase letters, numbers, dashes)
+                      used in SDK payload metadata. GrowthBook derives one from Name when
+                      unset; the derived value is then late-initialized here.
+                    pattern: ^[a-z0-9-]+$
+                    type: string
+                  restrictAccess:
+                    description: |-
+                      RestrictAccess limits the project to members with an explicit role on
+                      it. Requires a GrowthBook Pro or Enterprise plan.
+                    type: boolean
+                  settings:
+                    description: Settings override organization statistics settings
+                      for this project.
+                    properties:
+                      confidenceLevel:
+                        description: |-
+                          ConfidenceLevel is the Bayesian chance-to-win threshold as a decimal
+                          string, for example "0.95".
+                        pattern: ^(0(\.[0-9]+)?|1(\.0+)?)$
+                        type: string
+                      pValueThreshold:
+                        description: |-
+                          PValueThreshold is the frequentist p-value threshold as a decimal
+                          string, for example "0.05".
+                        pattern: ^(0(\.[0-9]+)?|1(\.0+)?)$
+                        type: string
+                      statsEngine:
+                        description: |-
+                          StatsEngine selects the statistics engine, for example "bayesian" or
+                          "frequentist".
+                        type: string
+                    type: object
                 required:
-                - configurableField
+                - name
                 type: object
               managementPolicies:
                 default:
@@ -126,14 +170,23 @@ spec:
             description: A ProjectStatus represents the observed state of a Project.
             properties:
               atProvider:
-                description: ProjectObservation are the observable fields of a Project.
+                description: ProjectObservation are the observable fields of a GrowthBook
+                  Project.
                 properties:
-                  configurableField:
+                  dateCreated:
+                    description: DateCreated is the RFC 3339 creation timestamp reported
+                      by GrowthBook.
                     type: string
-                  observableField:
+                  dateUpdated:
+                    description: DateUpdated is the RFC 3339 last-update timestamp
+                      reported by GrowthBook.
                     type: string
-                required:
-                - configurableField
+                  id:
+                    description: ID is the GrowthBook-assigned project id ("prj_...").
+                    type: string
+                  publicId:
+                    description: PublicID is the slug GrowthBook stores for the project.
+                    type: string
                 type: object
               conditions:
                 description: Conditions of the resource.

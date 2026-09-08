@@ -1,0 +1,17 @@
+apiVersion: core.growthbook.crossplane.io/v1alpha1
+kind: Project
+metadata:
+  name: web
+  namespace: default
+spec:
+  forProvider:
+    name: Web
+    description: Managed by Crossplane
+    # publicId is optional; GrowthBook derives one from name and the
+    # controller late-initializes it here.
+    settings:
+      statsEngine: bayesian
+      confidenceLevel: "0.95"
+  providerConfigRef:
+    kind: ProviderConfig
+    name: example

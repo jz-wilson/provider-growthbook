@@ -25,15 +25,69 @@ import (
 	xpv2 "github.com/crossplane/crossplane/apis/v2/core/v2"
 )
 
-// ProjectParameters are the configurable fields of a Project.
-type ProjectParameters struct {
-	ConfigurableField string `json:"configurableField"`
+// ProjectSettings override the organization's statistics settings for one
+// project. Decimal values are strings because CRD schemas forbid floating
+// point numbers; the controller converts them.
+type ProjectSettings struct {
+	// StatsEngine selects the statistics engine, for example "bayesian" or
+	// "frequentist".
+	// +optional
+	StatsEngine *string `json:"statsEngine,omitempty"`
+
+	// ConfidenceLevel is the Bayesian chance-to-win threshold as a decimal
+	// string, for example "0.95".
+	// +optional
+	// +kubebuilder:validation:Pattern=`^(0(\.[0-9]+)?|1(\.0+)?)$`
+	ConfidenceLevel *string `json:"confidenceLevel,omitempty"`
+
+	// PValueThreshold is the frequentist p-value threshold as a decimal
+	// string, for example "0.05".
+	// +optional
+	// +kubebuilder:validation:Pattern=`^(0(\.[0-9]+)?|1(\.0+)?)$`
+	PValueThreshold *string `json:"pValueThreshold,omitempty"`
 }
 
-// ProjectObservation are the observable fields of a Project.
+// ProjectParameters are the configurable fields of a GrowthBook Project.
+type ProjectParameters struct {
+	// Name is the human-readable project name.
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// Description is free text shown in the GrowthBook UI.
+	// +optional
+	// +kubebuilder:validation:MaxLength=10000
+	Description *string `json:"description,omitempty"`
+
+	// PublicID is the URL-safe slug (lowercase letters, numbers, dashes)
+	// used in SDK payload metadata. GrowthBook derives one from Name when
+	// unset; the derived value is then late-initialized here.
+	// +optional
+	// +kubebuilder:validation:Pattern=`^[a-z0-9-]+$`
+	PublicID *string `json:"publicId,omitempty"`
+
+	// RestrictAccess limits the project to members with an explicit role on
+	// it. Requires a GrowthBook Pro or Enterprise plan.
+	// +optional
+	RestrictAccess *bool `json:"restrictAccess,omitempty"`
+
+	// Settings override organization statistics settings for this project.
+	// +optional
+	Settings *ProjectSettings `json:"settings,omitempty"`
+}
+
+// ProjectObservation are the observable fields of a GrowthBook Project.
 type ProjectObservation struct {
-	ConfigurableField string `json:"configurableField"`
-	ObservableField   string `json:"observableField,omitempty"`
+	// ID is the GrowthBook-assigned project id ("prj_...").
+	ID string `json:"id,omitempty"`
+
+	// PublicID is the slug GrowthBook stores for the project.
+	PublicID string `json:"publicId,omitempty"`
+
+	// DateCreated is the RFC 3339 creation timestamp reported by GrowthBook.
+	DateCreated string `json:"dateCreated,omitempty"`
+
+	// DateUpdated is the RFC 3339 last-update timestamp reported by GrowthBook.
+	DateUpdated string `json:"dateUpdated,omitempty"`
 }
 
 // A ProjectSpec defines the desired state of a Project.
@@ -50,7 +104,8 @@ type ProjectStatus struct {
 
 // +kubebuilder:object:root=true
 
-// A Project is an example API type.
+// A Project is a GrowthBook project: the top-level container for features,
+// experiments, and SDK connections.
 // +kubebuilder:printcolumn:name="READY",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
 // +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane\\.io/external-name"

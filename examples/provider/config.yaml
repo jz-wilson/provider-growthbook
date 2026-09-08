@@ -3,14 +3,19 @@ kind: Namespace
 metadata:
   name: default
 ---
+# The credentials key holds a JSON document:
+#   {"apiKey": "secret_...", "apiUrl": "https://growthbook.example.com/api"}
+# apiUrl is optional and defaults to GrowthBook Cloud (https://api.growthbook.io/api).
+# A plain-text secret key without JSON also works.
 apiVersion: v1
 kind: Secret
 metadata:
   namespace: default
-  name: example-provider-secret
+  name: growthbook-credentials
 type: Opaque
-data:
-  credentials: QkFTRTY0RU5DT0RFRF9QUk9WSURFUl9DUkVEUwo=
+stringData:
+  credentials: |
+    {"apiKey": "secret_replace_me", "apiUrl": "https://growthbook.example.com/api"}
 ---
 apiVersion: growthbook.crossplane.io/v1alpha1
 kind: ProviderConfig
@@ -22,7 +27,7 @@ spec:
     source: Secret
     secretRef:
       namespace: default
-      name: example-provider-secret
+      name: growthbook-credentials
       key: credentials
 ---
 apiVersion: growthbook.crossplane.io/v1alpha1
@@ -34,5 +39,5 @@ spec:
     source: Secret
     secretRef:
       namespace: default
-      name: example-provider-secret
+      name: growthbook-credentials
       key: credentials
