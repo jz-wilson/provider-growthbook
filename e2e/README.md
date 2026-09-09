@@ -34,10 +34,18 @@ API enforces it with HTTP 402:
 | Create a project | 402: setup already created "My First Project", the plan's single one |
 | Create a custom environment | 402, only the built-in `production` |
 | Update the existing project or `production` environment | allowed |
+| Create a feature | allowed — features are not plan-limited |
 
 The integration tests detect the 402 and fall back to update-and-revert on
 the resources that exist. The uptest manifests only adopt `production`
 with `managementPolicies: ["Observe", "Update", "LateInitialize"]` for the
 same reason (Crossplane v2 namespaced resources have no `deletionPolicy`). To exercise create and delete
-end to end, set `LICENSE_KEY` in `docker-compose.yml` to a trial or paid key
-and add create-style manifests under `e2e/manifests/`.
+end to end for project/environment, set `LICENSE_KEY` in `docker-compose.yml`
+to a trial or paid key and add create-style manifests under
+`e2e/manifests/`.
+
+Features are creatable on the unlicensed free plan, so
+`e2e/manifests/feature-basic.yaml` is exercised end to end: uptest creates
+it, waits for `Ready`, then deletes it and asserts the deletion completes
+(including the provider's archive-then-retry path GrowthBook requires for
+deleting a live feature).

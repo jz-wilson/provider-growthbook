@@ -1,0 +1,21 @@
+# Creates and deletes a Feature end to end. Unlike Project and Environment,
+# features can be created on the unlicensed free plan, so uptest exercises
+# the full apply/observe/delete cycle here.
+apiVersion: feature.growthbook.crossplane.io/v1alpha1
+kind: Feature
+metadata:
+  name: e2e-flag
+  namespace: default
+  annotations:
+    uptest.upbound.io/timeout: "180"
+spec:
+  forProvider:
+    valueType: boolean
+    defaultValue: "false"
+    description: Managed by provider-growthbook e2e
+    environments:
+      production:
+        enabled: true
+  providerConfigRef:
+    kind: ProviderConfig
+    name: example
