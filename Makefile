@@ -162,3 +162,18 @@ crossplane.help:
 help-special: crossplane.help
 
 .PHONY: crossplane.help help-special
+
+# ====================================================================================
+# Security
+
+# govulncheck scans the module graph against the Go vulnerability database and
+# reports only vulnerabilities reachable from this code. It runs as part of
+# `make reviewable` so a known-vulnerable dependency fails the review gate.
+GOVULNCHECK_VERSION ?= latest
+go.vuln:
+	@$(INFO) govulncheck
+	@go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./... || $(FAIL)
+	@$(OK) govulncheck
+
+reviewable: go.vuln
+.PHONY: go.vuln
