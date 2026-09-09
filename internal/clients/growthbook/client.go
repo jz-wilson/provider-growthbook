@@ -84,10 +84,23 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("growthbook api: %d %s", e.StatusCode, e.Message)
 }
 
-// IsNotFound reports whether err is a 404 from the API.
+// IsNotFound reports whether err means the resource does not exist.
+// GrowthBook is inconsistent here: some endpoints return 404, others return
+// 400 with a "Could not find ..." message (observed on GET /v1/projects/{id}
+// against a live instance). Both count.
 func IsNotFound(err error) bool {
 	var ae *APIError
-	return errors.As(err, &ae) && ae.StatusCode == http.StatusNotFound
+	if !errors.As(err, &ae) {
+		return false
+	}
+	if ae.StatusCode == http.StatusNotFound {
+		return true
+	}
+	if ae.StatusCode != http.StatusBadRequest {
+		return false
+	}
+	msg := strings.ToLower(ae.Message)
+	return strings.Contains(msg, "could not find") || strings.Contains(msg, "not found")
 }
 
 // Client talks to one GrowthBook organization.

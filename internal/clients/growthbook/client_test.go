@@ -19,6 +19,8 @@ package growthbook
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -55,6 +57,29 @@ func TestParseCredentials(t *testing.T) {
 			}
 			if diff := cmp.Diff(tc.want, got); diff != "" {
 				t.Errorf("ParseCredentials() -want +got:\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestIsNotFound(t *testing.T) {
+	cases := map[string]struct {
+		err  error
+		want bool
+	}{
+		"Nil":            {err: nil, want: false},
+		"Plain404":       {err: &APIError{StatusCode: 404, Message: "not found"}, want: true},
+		"Wrapped404":     {err: fmt.Errorf("wrap: %w", &APIError{StatusCode: 404}), want: true},
+		"LiveProject400": {err: &APIError{StatusCode: 400, Message: "Could not find project with that id"}, want: true},
+		"Other400":       {err: &APIError{StatusCode: 400, Message: "name is required"}, want: false},
+		"PlanLimit402":   {err: &APIError{StatusCode: 402, Message: "Your plan only supports 1 project"}, want: false},
+		"NotAPIError":    {err: errors.New("could not find anything"), want: false},
+		"ServerError":    {err: &APIError{StatusCode: 500, Message: "not found"}, want: false},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			if got := IsNotFound(tc.err); got != tc.want {
+				t.Errorf("IsNotFound(%v) = %v, want %v", tc.err, got, tc.want)
 			}
 		})
 	}
