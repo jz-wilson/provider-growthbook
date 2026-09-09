@@ -34,13 +34,13 @@ func TestEnvironmentRoundTrip(t *testing.T) {
 		gotPath = r.URL.Path
 		gotBody = EnvironmentRequest{}
 		_ = json.NewDecoder(r.Body).Decode(&gotBody)
-		switch {
-		case r.Method == http.MethodGet:
+		switch r.Method {
+		case http.MethodGet:
 			_ = json.NewEncoder(w).Encode(map[string]any{"environments": []Environment{
 				{ID: "production", Description: "Prod", ToggleOnList: true, DefaultState: false, Projects: []string{}},
 				{ID: "staging", Description: "Stage", Projects: []string{"prj_1"}},
 			}})
-		case r.Method == http.MethodDelete:
+		case http.MethodDelete:
 			_, _ = w.Write([]byte(`{"deletedId":"staging"}`))
 		default:
 			_ = json.NewEncoder(w).Encode(map[string]any{"environment": Environment{

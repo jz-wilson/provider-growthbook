@@ -177,3 +177,15 @@ go.vuln:
 
 reviewable: go.vuln
 .PHONY: go.vuln
+
+# ====================================================================================
+# Integration
+
+# Runs the client integration tests against a live GrowthBook. Start one with
+# `docker compose -f e2e/docker-compose.yml up -d --wait` and mint a key with
+# `e2e/bootstrap.sh` first; the tests skip when GROWTHBOOK_API_KEY is unset.
+test.integration:
+	@$(INFO) go test integration
+	@go test -tags integration -count=1 ./internal/clients/... || $(FAIL)
+	@$(OK) go test integration
+.PHONY: test.integration

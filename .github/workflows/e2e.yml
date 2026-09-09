@@ -1,0 +1,119 @@
+name: E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  GO_VERSION: '1.26.6'
+  GROWTHBOOK_API_URL: http://localhost:3100/api
+
+jobs:
+  # Exercises the HTTP client against a real GrowthBook. Fast, no cluster.
+  integration:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Start GrowthBook
+        run: docker compose -f e2e/docker-compose.yml up -d --wait
+      - name: Mint API key
+        run: echo "GROWTHBOOK_API_KEY=$(e2e/bootstrap.sh)" >> "$GITHUB_ENV"
+      - name: Integration tests
+        run: go test -tags integration -count=1 -v ./internal/clients/...
+      - name: GrowthBook logs on failure
+        if: failure()
+        run: docker compose -f e2e/docker-compose.yml logs --no-color growthbook | tail -200
+
+  # Installs Crossplane and this provider into kind, points a ProviderConfig
+  # at the GrowthBook container, applies every example, and waits for Ready
+  # with uptest. Deletion is asserted too, so leaked resources fail the run.
+  uptest:
+    runs-on: ubuntu-24.04
+    needs: integration
+    env:
+      UPTEST_VERSION: v2.2.0
+      CROSSPLANE_VERSION: v2.4.0
+      KIND_CLUSTER: provider-growthbook-e2e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Start GrowthBook
+        run: docker compose -f e2e/docker-compose.yml up -d --wait
+      - name: Mint API key
+        run: echo "GROWTHBOOK_API_KEY=$(e2e/bootstrap.sh)" >> "$GITHUB_ENV"
+      - name: Build provider image and package
+        run: make build.all
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: ${{ env.KIND_CLUSTER }}
+          wait: 120s
+      - name: Install Crossplane
+        run: |
+          helm repo add crossplane-stable https://charts.crossplane.io/stable
+          helm install crossplane crossplane-stable/crossplane \
+            --namespace crossplane-system --create-namespace \
+            --version "${CROSSPLANE_VERSION#v}" --wait
+      - name: Load provider into kind and install
+        run: |
+          set -euo pipefail
+          IMG=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep provider-growthbook | grep -v xpkg | head -1)
+          kind load docker-image "$IMG" --name "$KIND_CLUSTER"
+          kubectl apply -f - <<EOF
+          apiVersion: pkg.crossplane.io/v1
+          kind: Provider
+          metadata:
+            name: provider-growthbook
+          spec:
+            package: $IMG
+            packagePullPolicy: Never
+          EOF
+          kubectl wait provider.pkg.crossplane.io/provider-growthbook --for=condition=Healthy --timeout=300s
+      - name: ProviderConfig pointing at the GrowthBook container
+        run: |
+          # Pods in kind reach the runner host via the docker bridge gateway.
+          HOST_IP=$(docker network inspect kind -f '{{(index .IPAM.Config 0).Gateway}}')
+          kubectl create namespace default --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n default create secret generic growthbook-credentials \
+            --from-literal=credentials="{\"apiKey\":\"${GROWTHBOOK_API_KEY}\",\"apiUrl\":\"http://${HOST_IP}:3100/api\"}"
+          kubectl apply -f - <<EOF
+          apiVersion: growthbook.crossplane.io/v1alpha1
+          kind: ProviderConfig
+          metadata:
+            name: example
+            namespace: default
+          spec:
+            credentials:
+              source: Secret
+              secretRef:
+                namespace: default
+                name: growthbook-credentials
+                key: credentials
+          EOF
+      - name: Install uptest
+        run: |
+          curl -fsSL "https://github.com/crossplane/uptest/releases/download/${UPTEST_VERSION}/uptest_linux_amd64" -o /usr/local/bin/uptest
+          chmod +x /usr/local/bin/uptest
+      - name: Run uptest
+        run: |
+          # e2e/manifests holds what works on an unlicensed GrowthBook (see
+          # e2e/README.md). examples/ needs a licensed instance to create.
+          EXAMPLES=$(find e2e/manifests -name '*.yaml' | sort | paste -sd,)
+          uptest e2e "$EXAMPLES" --default-timeout=300s --default-conditions=Ready
+      - name: Dump cluster state on failure
+        if: failure()
+        run: |
+          kubectl get managed -A -o wide || true
+          kubectl -n crossplane-system logs -l pkg.crossplane.io/provider=provider-growthbook --tail=200 || true
+          docker compose -f e2e/docker-compose.yml logs --no-color growthbook | tail -100
