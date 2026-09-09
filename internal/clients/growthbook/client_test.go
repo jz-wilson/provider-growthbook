@@ -85,6 +85,33 @@ func TestIsNotFound(t *testing.T) {
 	}
 }
 
+func TestIsArchiveRequired(t *testing.T) {
+	cases := map[string]struct {
+		err  error
+		want bool
+	}{
+		"Nil": {err: nil, want: false},
+		"ArchiveRequired403": {
+			err:  &APIError{StatusCode: 403, Message: "Cannot delete a live feature via the REST API when 'REST API always bypasses approval requirements' is disabled. Archive the feature first, or enable the bypass setting in organization settings."},
+			want: true,
+		},
+		"WrappedArchiveRequired403": {
+			err:  fmt.Errorf("wrap: %w", &APIError{StatusCode: 403, Message: "Archive the feature first"}),
+			want: true,
+		},
+		"Other403":     {err: &APIError{StatusCode: 403, Message: "not authorized"}, want: false},
+		"NotForbidden": {err: &APIError{StatusCode: 400, Message: "Archive the feature first"}, want: false},
+		"NotAPIError":  {err: errors.New("archive the feature first"), want: false},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			if got := IsArchiveRequired(tc.err); got != tc.want {
+				t.Errorf("IsArchiveRequired(%v) = %v, want %v", tc.err, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestProjectRoundTrip(t *testing.T) {
 	var gotAuth, gotMethod, gotPath string
 	var gotBody ProjectRequest

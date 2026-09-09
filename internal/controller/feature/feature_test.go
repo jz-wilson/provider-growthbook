@@ -59,8 +59,9 @@ func (f *fakeClient) DeleteFeature(ctx context.Context, id string) error {
 const featureID = "my-feature"
 
 var (
-	errBoom     = errors.New("boom")
-	errNotFound = &growthbook.APIError{StatusCode: http.StatusNotFound, Message: "feature not found"}
+	errBoom            = errors.New("boom")
+	errNotFound        = &growthbook.APIError{StatusCode: http.StatusNotFound, Message: "feature not found"}
+	errArchiveRequired = &growthbook.APIError{StatusCode: http.StatusForbidden, Message: "Archive the feature first"}
 )
 
 func ptr[T any](v T) *T { return &v }
@@ -304,6 +305,47 @@ func TestDelete(t *testing.T) {
 			reason: "Other API errors are wrapped and returned.",
 			client: &fakeClient{delete: func(_ context.Context, _ string) error { return errBoom }},
 			err:    errors.Wrap(errBoom, errDeleteFeature),
+		},
+		"ArchiveThenDeleteSucceeds": {
+			reason: "A 403 asking to archive first is handled by archiving and retrying the delete.",
+			client: func() FeatureClient {
+				calls := 0
+				return &fakeClient{
+					delete: func(_ context.Context, _ string) error {
+						calls++
+						if calls == 1 {
+							return errArchiveRequired
+						}
+						return nil
+					},
+					update: func(_ context.Context, _ string, req growthbook.FeatureRequest) (*growthbook.Feature, error) {
+						if req.Archived == nil || !*req.Archived {
+							t.Fatalf("archive update must send archived=true: %+v", req)
+						}
+						return remote(), nil
+					},
+				}
+			}(),
+		},
+		"ArchiveFails": {
+			reason: "A failed archive attempt is wrapped and returned.",
+			client: &fakeClient{
+				delete: func(_ context.Context, _ string) error { return errArchiveRequired },
+				update: func(_ context.Context, _ string, _ growthbook.FeatureRequest) (*growthbook.Feature, error) {
+					return nil, errBoom
+				},
+			},
+			err: errors.Wrap(errBoom, errArchiveFeature),
+		},
+		"DeleteFailsAfterArchive": {
+			reason: "A delete that still fails after a successful archive is wrapped and returned.",
+			client: &fakeClient{
+				delete: func(_ context.Context, _ string) error { return errArchiveRequired },
+				update: func(_ context.Context, _ string, _ growthbook.FeatureRequest) (*growthbook.Feature, error) {
+					return remote(), nil
+				},
+			},
+			err: errors.Wrap(errArchiveRequired, errDeleteFeature),
 		},
 	}
 

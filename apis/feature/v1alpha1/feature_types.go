@@ -43,6 +43,12 @@ type FeatureEnvironment struct {
 // milestone; a Feature managed here will report ResourceUpToDate based
 // solely on the fields below even if it also carries rules configured
 // out of band (for example through the GrowthBook UI).
+//
+// Deleting a Feature normally issues a plain DELETE. Some organizations
+// disable "REST API always bypasses approval requirements", in which case
+// GrowthBook refuses to delete a live (non-archived) feature via the REST
+// API; the controller detects that response and archives the feature
+// before retrying the delete once.
 type FeatureParameters struct {
 	// ValueType is the data type of the feature payload. Immutable after
 	// creation.

@@ -103,6 +103,19 @@ func IsNotFound(err error) bool {
 	return strings.Contains(msg, "could not find") || strings.Contains(msg, "not found")
 }
 
+// IsArchiveRequired reports whether err means a feature must be archived
+// before it can be deleted. Observed on DELETE /v2/features/{id} against a
+// live instance with "REST API always bypasses approval requirements"
+// disabled: GrowthBook returns 403 and asks the caller to archive the
+// feature first rather than deleting it outright.
+func IsArchiveRequired(err error) bool {
+	var ae *APIError
+	if !errors.As(err, &ae) || ae.StatusCode != http.StatusForbidden {
+		return false
+	}
+	return strings.Contains(strings.ToLower(ae.Message), "archive the feature first")
+}
+
 // Client talks to one GrowthBook organization.
 type Client struct {
 	baseURL string

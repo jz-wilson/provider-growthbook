@@ -49,10 +49,11 @@ const (
 	errGetCreds     = "cannot get credentials"
 	errNewClient    = "cannot create GrowthBook client"
 
-	errGetFeature    = "cannot get feature"
-	errCreateFeature = "cannot create feature"
-	errUpdateFeature = "cannot update feature"
-	errDeleteFeature = "cannot delete feature"
+	errGetFeature     = "cannot get feature"
+	errCreateFeature  = "cannot create feature"
+	errUpdateFeature  = "cannot update feature"
+	errDeleteFeature  = "cannot delete feature"
+	errArchiveFeature = "cannot archive feature before delete"
 )
 
 // FeatureClient is the subset of the GrowthBook API the controller needs.
@@ -223,9 +224,27 @@ func (e *external) Update(ctx context.Context, cr *v1alpha1.Feature) (managed.Ex
 	return managed.ExternalUpdate{}, nil
 }
 
-// Delete removes the feature. One that is already gone is a success.
+// Delete removes the feature. One that is already gone is a success. When
+// the organization requires archiving before delete ("REST API always
+// bypasses approval requirements" disabled), GrowthBook returns a 403
+// asking the caller to archive the feature first; this archives it and
+// retries the delete once.
 func (e *external) Delete(ctx context.Context, cr *v1alpha1.Feature) (managed.ExternalDelete, error) {
-	if err := e.client.DeleteFeature(ctx, meta.GetExternalName(cr)); err != nil && !growthbook.IsNotFound(err) {
+	id := meta.GetExternalName(cr)
+	err := e.client.DeleteFeature(ctx, id)
+	if err == nil || growthbook.IsNotFound(err) {
+		return managed.ExternalDelete{}, nil
+	}
+	if !growthbook.IsArchiveRequired(err) {
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteFeature)
+	}
+
+	archived := true
+	if _, archiveErr := e.client.UpdateFeature(ctx, id, growthbook.FeatureRequest{Archived: &archived}); archiveErr != nil {
+		return managed.ExternalDelete{}, errors.Wrap(archiveErr, errArchiveFeature)
+	}
+
+	if err := e.client.DeleteFeature(ctx, id); err != nil && !growthbook.IsNotFound(err) {
 		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteFeature)
 	}
 
