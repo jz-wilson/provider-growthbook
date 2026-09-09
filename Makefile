@@ -33,15 +33,17 @@ GOLANGCILINT_VERSION = 2.13.2
 # type, silently dropping spec.capabilities, so the built xpkg never
 # carries safe-start and Crossplane installs it without safe-start
 # behavior. Pin to a v2 CLI release that knows about capabilities, and
-# override the download recipe: v2 releases publish the binary as
-# "crossplane", not "crank", so the upstream recipe hardcoded URL 404s.
+# override the download recipe: the v2 CLI is published on
+# cli.crossplane.io as "crossplane". Do not use releases.crossplane.io for
+# it: that host serves the core controller binary at the same path, which
+# has no xpkg subcommand.
 CROSSPLANE_CLI_VERSION := v2.4.0
 
 -include build/makelib/k8s_tools.mk
 
 $(CROSSPLANE_CLI):
 	@$(INFO) installing Crossplane CLI $(CROSSPLANE_CLI_VERSION)
-	@curl -fsSLo $(CROSSPLANE_CLI) --create-dirs https://releases.crossplane.io/$(CROSSPLANE_CLI_CHANNEL)/$(CROSSPLANE_CLI_VERSION)/bin/$(SAFEHOST_PLATFORM)/crossplane?source=build || $(FAIL)
+	@curl -fsSLo $(CROSSPLANE_CLI) --create-dirs https://cli.crossplane.io/$(CROSSPLANE_CLI_CHANNEL)/$(CROSSPLANE_CLI_VERSION)/bin/$(SAFEHOST_PLATFORM)/crossplane?source=build || $(FAIL)
 	@chmod +x $(CROSSPLANE_CLI)
 	@$(OK) installing Crossplane CLI $(CROSSPLANE_CLI_VERSION)
 
