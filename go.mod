@@ -1,6 +1,6 @@
 module github.com/jz-wilson/provider-growthbook
 
-go 1.26.1
+go 1.26.6
 
 tool sigs.k8s.io/controller-tools/cmd/controller-gen
 
