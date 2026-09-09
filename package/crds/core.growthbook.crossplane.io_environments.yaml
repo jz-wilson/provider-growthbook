@@ -34,7 +34,9 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: A Environment is an example API type.
+        description: |-
+          An Environment is a GrowthBook environment such as production or staging.
+          Feature rules are evaluated per environment.
         properties:
           apiVersion:
             description: |-
@@ -54,16 +56,39 @@ spec:
           metadata:
             type: object
           spec:
-            description: A EnvironmentSpec defines the desired state of a Environment.
+            description: An EnvironmentSpec defines the desired state of an Environment.
             properties:
               forProvider:
-                description: EnvironmentParameters are the configurable fields of
-                  a Environment.
+                description: |-
+                  EnvironmentParameters are the configurable fields of a GrowthBook
+                  Environment. The environment id is the resource's external name
+                  (crossplane.io/external-name annotation), defaulting to metadata.name.
                 properties:
-                  configurableField:
+                  defaultState:
+                    description: |-
+                      DefaultState is the initial on/off state new features get in this
+                      environment.
+                    type: boolean
+                  description:
+                    description: Description is free text shown in the GrowthBook
+                      UI.
                     type: string
-                required:
-                - configurableField
+                  parent:
+                    description: |-
+                      Parent is an environment id to inherit feature rules from. Create-only
+                      and requires a GrowthBook Enterprise license.
+                    type: string
+                  projects:
+                    description: |-
+                      Projects restricts the environment to these project ids. Empty means
+                      all projects. Compared as a set.
+                    items:
+                      type: string
+                    type: array
+                  toggleOnList:
+                    description: ToggleOnList shows this environment's toggle on the
+                      feature list page.
+                    type: boolean
                 type: object
               managementPolicies:
                 default:
@@ -124,18 +149,19 @@ spec:
             - forProvider
             type: object
           status:
-            description: A EnvironmentStatus represents the observed state of a Environment.
+            description: An EnvironmentStatus represents the observed state of an
+              Environment.
             properties:
               atProvider:
                 description: EnvironmentObservation are the observable fields of a
-                  Environment.
+                  GrowthBook Environment.
                 properties:
-                  configurableField:
+                  id:
+                    description: ID is the environment id as stored by GrowthBook.
                     type: string
-                  observableField:
+                  parent:
+                    description: Parent is the inherited-from environment, if any.
                     type: string
-                required:
-                - configurableField
                 type: object
               conditions:
                 description: Conditions of the resource.

@@ -25,24 +25,51 @@ import (
 	xpv2 "github.com/crossplane/crossplane/apis/v2/core/v2"
 )
 
-// EnvironmentParameters are the configurable fields of a Environment.
+// EnvironmentParameters are the configurable fields of a GrowthBook
+// Environment. The environment id is the resource's external name
+// (crossplane.io/external-name annotation), defaulting to metadata.name.
 type EnvironmentParameters struct {
-	ConfigurableField string `json:"configurableField"`
+	// Description is free text shown in the GrowthBook UI.
+	// +optional
+	Description *string `json:"description,omitempty"`
+
+	// ToggleOnList shows this environment's toggle on the feature list page.
+	// +optional
+	ToggleOnList *bool `json:"toggleOnList,omitempty"`
+
+	// DefaultState is the initial on/off state new features get in this
+	// environment.
+	// +optional
+	DefaultState *bool `json:"defaultState,omitempty"`
+
+	// Projects restricts the environment to these project ids. Empty means
+	// all projects. Compared as a set.
+	// +optional
+	Projects []string `json:"projects,omitempty"`
+
+	// Parent is an environment id to inherit feature rules from. Create-only
+	// and requires a GrowthBook Enterprise license.
+	// +optional
+	// +immutable
+	Parent *string `json:"parent,omitempty"`
 }
 
-// EnvironmentObservation are the observable fields of a Environment.
+// EnvironmentObservation are the observable fields of a GrowthBook Environment.
 type EnvironmentObservation struct {
-	ConfigurableField string `json:"configurableField"`
-	ObservableField   string `json:"observableField,omitempty"`
+	// ID is the environment id as stored by GrowthBook.
+	ID string `json:"id,omitempty"`
+
+	// Parent is the inherited-from environment, if any.
+	Parent string `json:"parent,omitempty"`
 }
 
-// A EnvironmentSpec defines the desired state of a Environment.
+// An EnvironmentSpec defines the desired state of an Environment.
 type EnvironmentSpec struct {
 	xpv2.ManagedResourceSpec `json:",inline"`
 	ForProvider              EnvironmentParameters `json:"forProvider"`
 }
 
-// A EnvironmentStatus represents the observed state of a Environment.
+// An EnvironmentStatus represents the observed state of an Environment.
 type EnvironmentStatus struct {
 	xpv2.ManagedResourceStatus `json:",inline"`
 	AtProvider                 EnvironmentObservation `json:"atProvider,omitempty"`
@@ -50,7 +77,8 @@ type EnvironmentStatus struct {
 
 // +kubebuilder:object:root=true
 
-// A Environment is an example API type.
+// An Environment is a GrowthBook environment such as production or staging.
+// Feature rules are evaluated per environment.
 // +kubebuilder:printcolumn:name="READY",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
 // +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane\\.io/external-name"

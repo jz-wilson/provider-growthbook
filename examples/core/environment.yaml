@@ -1,0 +1,18 @@
+apiVersion: core.growthbook.crossplane.io/v1alpha1
+kind: Environment
+metadata:
+  name: staging
+  namespace: default
+  # The environment id is the external name; it defaults to metadata.name.
+  # Set the annotation to use a different id:
+  # annotations:
+  #   crossplane.io/external-name: stage
+spec:
+  forProvider:
+    description: Staging environment managed by Crossplane
+    toggleOnList: true
+    defaultState: false
+    # projects: [prj_abc123]   # restrict to specific project ids
+  providerConfigRef:
+    kind: ProviderConfig
+    name: example
