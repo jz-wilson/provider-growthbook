@@ -187,4 +187,68 @@ func testEnvironmentUpdateOnDefault(ctx context.Context, t *testing.T, c *Client
 	}
 }
 
+// --- Feature lifecycle (added for the Feature managed resource) ---
+
+func TestIntegrationFeatureLifecycle(t *testing.T) {
+	c := integrationClient(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	id := fmt.Sprintf("it_feature_%d", time.Now().UnixNano())
+	f, err := c.CreateFeature(ctx, FeatureRequest{ID: id, ValueType: "boolean", DefaultValue: "true"})
+	switch {
+	case isPlanLimit(err):
+		t.Logf("plan limit reached, cannot create a feature: %v", err)
+		t.Skip("plan does not allow creating features")
+		return
+	case err != nil:
+		t.Fatalf("CreateFeature() error = %v", err)
+	}
+	t.Cleanup(func() { _ = deleteFeatureArchivingIfRequired(context.Background(), c, id) })
+	if f.ID != id || f.ValueType != "boolean" || f.DefaultValue != "true" {
+		t.Fatalf("CreateFeature() = %+v", f)
+	}
+
+	got, err := c.GetFeature(ctx, id)
+	if err != nil || got.ID != id {
+		t.Fatalf("GetFeature() = %+v, err %v", got, err)
+	}
+
+	upd, err := c.UpdateFeature(ctx, id, FeatureRequest{Description: ptrStr("integration-updated")})
+	if err != nil || upd.Description != "integration-updated" {
+		t.Fatalf("UpdateFeature() = %+v, err %v", upd, err)
+	}
+
+	// Some organizations disable "REST API always bypasses approval
+	// requirements", in which case GrowthBook refuses to delete a live
+	// feature via the REST API with a 403 asking the caller to archive it
+	// first. Exercise the same archive-then-delete path the controller
+	// uses.
+	if err := deleteFeatureArchivingIfRequired(ctx, c, id); err != nil {
+		t.Fatalf("deleteFeatureArchivingIfRequired() error = %v", err)
+	}
+	if _, err := c.GetFeature(ctx, id); !IsNotFound(err) {
+		t.Fatalf("GetFeature() after delete err = %v, want not found", err)
+	}
+}
+
+// deleteFeatureArchivingIfRequired mirrors the controller's Delete: if the
+// API demands the feature be archived first, it archives and retries once.
+func deleteFeatureArchivingIfRequired(ctx context.Context, c *Client, id string) error {
+	err := c.DeleteFeature(ctx, id)
+	if err == nil || IsNotFound(err) {
+		return nil
+	}
+	if !IsArchiveRequired(err) {
+		return err
+	}
+	if _, archiveErr := c.UpdateFeature(ctx, id, FeatureRequest{Archived: ptrBool(true)}); archiveErr != nil {
+		return archiveErr
+	}
+	if err := c.DeleteFeature(ctx, id); err != nil && !IsNotFound(err) {
+		return err
+	}
+	return nil
+}
+
 func ptrBool(b bool) *bool { return &b }

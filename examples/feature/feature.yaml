@@ -1,0 +1,28 @@
+apiVersion: feature.growthbook.crossplane.io/v1alpha1
+kind: Feature
+metadata:
+  name: new-checkout-flow
+  namespace: default
+  # The feature key is the external name; it defaults to metadata.name.
+  # Set the annotation to use a different key:
+  # annotations:
+  #   crossplane.io/external-name: new_checkout_flow
+spec:
+  forProvider:
+    valueType: boolean
+    defaultValue: "true"
+    description: Enables the redesigned checkout flow
+    # project: prj_abc123
+    tags:
+      - checkout
+      - experiment
+    archived: false
+    # owner: alice@example.com
+    environments:
+      production:
+        enabled: false
+      staging:
+        enabled: true
+  providerConfigRef:
+    kind: ProviderConfig
+    name: example

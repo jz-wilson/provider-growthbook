@@ -34,7 +34,9 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: A Feature is an example API type.
+        description: |-
+          A Feature is a GrowthBook feature flag. This milestone manages its
+          value and per-environment enabled toggles; rules are not modeled.
         properties:
           apiVersion:
             description: |-
@@ -57,12 +59,81 @@ spec:
             description: A FeatureSpec defines the desired state of a Feature.
             properties:
               forProvider:
-                description: FeatureParameters are the configurable fields of a Feature.
+                description: |-
+                  FeatureParameters are the configurable fields of a GrowthBook Feature.
+                  The feature key is the resource's external name (crossplane.io/
+                  external-name annotation), defaulting to metadata.name.
+
+                  This milestone deliberately covers only the feature's value and its
+                  per-environment enabled toggles. Rules, prerequisites, revisions, and
+                  JSON schema validation are not modeled and are left for a later
+                  milestone; a Feature managed here will report ResourceUpToDate based
+                  solely on the fields below even if it also carries rules configured
+                  out of band (for example through the GrowthBook UI).
+
+                  Deleting a Feature normally issues a plain DELETE. Some organizations
+                  disable "REST API always bypasses approval requirements", in which case
+                  GrowthBook refuses to delete a live (non-archived) feature via the REST
+                  API; the controller detects that response and archives the feature
+                  before retrying the delete once.
                 properties:
-                  configurableField:
+                  archived:
+                    description: Archived hides the feature from the default feature
+                      list.
+                    type: boolean
+                  defaultValue:
+                    description: |-
+                      DefaultValue is the value served when the feature is enabled. Its
+                      type must match ValueType; for "number" and "json" the literal is
+                      passed through as a string exactly as GrowthBook expects it.
+                    type: string
+                  description:
+                    description: Description is free text shown in the GrowthBook
+                      UI.
+                    type: string
+                  environments:
+                    additionalProperties:
+                      description: |-
+                        FeatureEnvironment is the desired state of a Feature within one
+                        environment.
+                      properties:
+                        enabled:
+                          description: Enabled toggles the feature on or off in this
+                            environment.
+                          type: boolean
+                      type: object
+                    description: |-
+                      Environments maps an environment id to its desired enabled state.
+                      Only the environments present here are managed; environments left
+                      out are never touched.
+                    type: object
+                  owner:
+                    description: Owner is the userId or email address of the feature's
+                      owner.
+                    type: string
+                  project:
+                    description: Project restricts the feature to one project id.
+                    type: string
+                  tags:
+                    description: |-
+                      Tags are labels associated with the feature. Nil means unmanaged;
+                      a set list compares and replaces as a set.
+                    items:
+                      type: string
+                    type: array
+                  valueType:
+                    description: |-
+                      ValueType is the data type of the feature payload. Immutable after
+                      creation.
+                    enum:
+                    - boolean
+                    - string
+                    - number
+                    - json
                     type: string
                 required:
-                - configurableField
+                - defaultValue
+                - valueType
                 type: object
               managementPolicies:
                 default:
@@ -126,14 +197,39 @@ spec:
             description: A FeatureStatus represents the observed state of a Feature.
             properties:
               atProvider:
-                description: FeatureObservation are the observable fields of a Feature.
+                description: FeatureObservation are the observable fields of a GrowthBook
+                  Feature.
                 properties:
-                  configurableField:
+                  dateCreated:
+                    description: DateCreated is when GrowthBook created the feature.
                     type: string
-                  observableField:
+                  dateUpdated:
+                    description: DateUpdated is when GrowthBook last updated the feature.
                     type: string
-                required:
-                - configurableField
+                  environments:
+                    additionalProperties:
+                      description: |-
+                        FeatureEnvironmentObservation is the observed state of a Feature within
+                        one environment.
+                      properties:
+                        enabled:
+                          description: Enabled reports whether the feature is on in
+                            this environment.
+                          type: boolean
+                      type: object
+                    description: Environments reports the observed enabled state per
+                      environment.
+                    type: object
+                  id:
+                    description: ID is the feature key as stored by GrowthBook.
+                    type: string
+                  revision:
+                    description: Revision is the feature's current published revision.
+                    properties:
+                      version:
+                        description: Version is the revision number.
+                        type: integer
+                    type: object
                 type: object
               conditions:
                 description: Conditions of the resource.

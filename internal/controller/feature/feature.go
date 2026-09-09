@@ -14,20 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package feature reconciles feature.growthbook.crossplane.io Feature
+// resources against the GrowthBook /v2/features API.
 package feature
 
 import (
 	"context"
 
-	"github.com/crossplane/crossplane-runtime/v2/pkg/feature"
-
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	xpv2 "github.com/crossplane/crossplane/apis/v2/core/v2"
+
 	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/feature"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/ratelimiter"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
@@ -35,6 +39,7 @@ import (
 
 	v1alpha1 "github.com/jz-wilson/provider-growthbook/apis/feature/v1alpha1"
 	apisv1alpha1 "github.com/jz-wilson/provider-growthbook/apis/v1alpha1"
+	"github.com/jz-wilson/provider-growthbook/internal/clients/growthbook"
 )
 
 const (
@@ -42,27 +47,26 @@ const (
 	errGetPC        = "cannot get ProviderConfig"
 	errGetCPC       = "cannot get ClusterProviderConfig"
 	errGetCreds     = "cannot get credentials"
+	errNewClient    = "cannot create GrowthBook client"
 
-	errNewClient = "cannot create new Service"
+	errGetFeature     = "cannot get feature"
+	errCreateFeature  = "cannot create feature"
+	errUpdateFeature  = "cannot update feature"
+	errDeleteFeature  = "cannot delete feature"
+	errArchiveFeature = "cannot archive feature before delete"
 )
 
-// ErrNotImplemented is returned by every External operation on Feature. The
-// GrowthBook client for this resource has not been implemented yet, so
-// applying a Feature today would otherwise appear to succeed while never
-// actually reconciling anything against the GrowthBook API.
-var ErrNotImplemented = errors.New("Feature is not implemented yet in provider-growthbook")
-
-// A stubService is a placeholder for the GrowthBook client this controller
-// will eventually use. It intentionally does nothing yet.
-type stubService struct {
-	// creds are stored, not ignored, so that once a real client lands here
-	// wiring credentials through is a small diff rather than a rewrite.
-	creds []byte
+// FeatureClient is the subset of the GrowthBook API the controller needs.
+type FeatureClient interface {
+	GetFeature(ctx context.Context, id string) (*growthbook.Feature, error)
+	CreateFeature(ctx context.Context, req growthbook.FeatureRequest) (*growthbook.Feature, error)
+	UpdateFeature(ctx context.Context, id string, req growthbook.FeatureRequest) (*growthbook.Feature, error)
+	DeleteFeature(ctx context.Context, id string) error
 }
 
-var (
-	newStubService = func(creds []byte) (*stubService, error) { return &stubService{creds: creds}, nil }
-)
+var newClient = func(creds []byte) (FeatureClient, error) {
+	return growthbook.NewFromSecret(creds)
+}
 
 // SetupGated adds a controller that reconciles Feature managed resources with safe-start support.
 func SetupGated(mgr ctrl.Manager, o controller.Options) error {
@@ -74,14 +78,17 @@ func SetupGated(mgr ctrl.Manager, o controller.Options) error {
 	return nil
 }
 
+// Setup adds a controller that reconciles Feature managed resources.
+// The default initializers stay on: the feature key is user-chosen, so
+// metadata.name is the right default external name.
 func Setup(mgr ctrl.Manager, o controller.Options) error {
 	name := managed.ControllerName(v1alpha1.FeatureGroupKind)
 
 	opts := []managed.ReconcilerOption{
 		managed.WithTypedExternalConnector[*v1alpha1.Feature](&connector{
-			kube:         mgr.GetClient(),
-			usage:        resource.NewProviderConfigUsageTracker(mgr.GetClient(), &apisv1alpha1.ProviderConfigUsage{}),
-			newServiceFn: newStubService}),
+			kube:        mgr.GetClient(),
+			usage:       resource.NewProviderConfigUsageTracker(mgr.GetClient(), &apisv1alpha1.ProviderConfigUsage{}),
+			newClientFn: newClient}),
 		managed.WithLogger(o.Logger.WithValues("controller", name)),
 		managed.WithPollInterval(o.PollInterval),
 		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))), //nolint:staticcheck // TODO(jbw976) Crossplane needs to update to the new events API, see https://github.com/crossplane/crossplane/issues/7152
@@ -118,19 +125,15 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		Complete(ratelimiter.NewReconciler(name, r, o.GlobalRateLimiter))
 }
 
-// A connector is expected to produce an ExternalClient when its Connect method
-// is called.
+// A connector produces an ExternalClient from the ProviderConfig credentials.
 type connector struct {
-	kube         client.Client
-	usage        *resource.ProviderConfigUsageTracker
-	newServiceFn func(creds []byte) (*stubService, error)
+	kube        client.Client
+	usage       *resource.ProviderConfigUsageTracker
+	newClientFn func(creds []byte) (FeatureClient, error)
 }
 
-// Connect typically produces an ExternalClient by:
-// 1. Tracking that the managed resource is using a ProviderConfig.
-// 2. Getting the managed resource's ProviderConfig.
-// 3. Getting the credentials specified by the ProviderConfig.
-// 4. Using the credentials to form a client.
+// Connect tracks ProviderConfig usage, resolves the credentials secret, and
+// builds a GrowthBook client from it.
 func (c *connector) Connect(ctx context.Context, cr *v1alpha1.Feature) (managed.TypedExternalClient[*v1alpha1.Feature], error) {
 	if err := c.usage.Track(ctx, cr); err != nil {
 		return nil, errors.Wrap(err, errTrackPCUsage)
@@ -161,50 +164,94 @@ func (c *connector) Connect(ctx context.Context, cr *v1alpha1.Feature) (managed.
 		return nil, errors.Wrap(err, errGetCreds)
 	}
 
-	svc, err := c.newServiceFn(data)
+	gb, err := c.newClientFn(data)
 	if err != nil {
 		return nil, errors.Wrap(err, errNewClient)
 	}
 
-	return &external{service: svc}, nil
+	return &external{client: gb}, nil
 }
 
-// An ExternalClient observes, then either creates, updates, or deletes an
-// external resource to ensure it reflects the managed resource's desired state.
+// An external client reconciles one Feature against the GrowthBook API.
 type external struct {
-	// service is a placeholder for the future GrowthBook client. Every
-	// method below returns ErrNotImplemented until it is wired up.
-	service *stubService
+	client FeatureClient
 }
 
-// Observe always fails: Feature reconciliation is not implemented yet. This
-// surfaces as Synced=False with ReconcileError on the managed resource,
-// rather than silently reporting a healthy resource that was never checked
-// against the GrowthBook API.
-func (c *external) Observe(_ context.Context, _ *v1alpha1.Feature) (managed.ExternalObservation, error) {
-	return managed.ExternalObservation{}, ErrNotImplemented
+// Observe looks the feature up by its external name (the feature key).
+func (e *external) Observe(ctx context.Context, cr *v1alpha1.Feature) (managed.ExternalObservation, error) {
+	f, err := e.client.GetFeature(ctx, meta.GetExternalName(cr))
+	if err != nil {
+		if growthbook.IsNotFound(err) {
+			return managed.ExternalObservation{ResourceExists: false}, nil
+		}
+		return managed.ExternalObservation{}, errors.Wrap(err, errGetFeature)
+	}
+
+	lateInit := lateInitialize(&cr.Spec.ForProvider, f)
+	cr.Status.AtProvider = observation(f)
+	cr.SetConditions(xpv2.Available())
+
+	return managed.ExternalObservation{
+		ResourceExists:          true,
+		ResourceUpToDate:        isUpToDate(cr.Spec.ForProvider, f),
+		ResourceLateInitialized: lateInit,
+	}, nil
 }
 
-// Create always fails: see Observe.
-func (c *external) Create(_ context.Context, _ *v1alpha1.Feature) (managed.ExternalCreation, error) {
-	return managed.ExternalCreation{}, ErrNotImplemented
+// Create posts the feature under the external name as its key.
+func (e *external) Create(ctx context.Context, cr *v1alpha1.Feature) (managed.ExternalCreation, error) {
+	f, err := e.client.CreateFeature(ctx, createRequest(meta.GetExternalName(cr), cr.Spec.ForProvider))
+	if err != nil {
+		return managed.ExternalCreation{}, errors.Wrap(err, errCreateFeature)
+	}
+
+	cr.Status.AtProvider = observation(f)
+
+	return managed.ExternalCreation{}, nil
 }
 
-// Update always fails: see Observe.
-func (c *external) Update(_ context.Context, _ *v1alpha1.Feature) (managed.ExternalUpdate, error) {
-	return managed.ExternalUpdate{}, ErrNotImplemented
+// Update pushes the mutable fields. valueType is create-only and is never
+// sent. GrowthBook publishes the change immediately; there is no separate
+// draft step for these fields.
+func (e *external) Update(ctx context.Context, cr *v1alpha1.Feature) (managed.ExternalUpdate, error) {
+	f, err := e.client.UpdateFeature(ctx, meta.GetExternalName(cr), updateRequest(cr.Spec.ForProvider))
+	if err != nil {
+		return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateFeature)
+	}
+
+	cr.Status.AtProvider = observation(f)
+
+	return managed.ExternalUpdate{}, nil
 }
 
-// Delete always fails: see Observe. Note this means a Feature object cannot
-// be deleted through normal reconciliation while this controller is
-// unimplemented; an operator who needs to remove one must manually strip its
-// finalizer (kubectl patch ... --type=merge -p '{"metadata":{"finalizers":[]}}")
-// rather than relying on Crossplane to clean it up, so the object is never
-// silently orphaned by this controller pretending deletion succeeded.
-func (c *external) Delete(_ context.Context, _ *v1alpha1.Feature) (managed.ExternalDelete, error) {
-	return managed.ExternalDelete{}, ErrNotImplemented
+// Delete removes the feature. One that is already gone is a success. When
+// the organization requires archiving before delete ("REST API always
+// bypasses approval requirements" disabled), GrowthBook returns a 403
+// asking the caller to archive the feature first; this archives it and
+// retries the delete once.
+func (e *external) Delete(ctx context.Context, cr *v1alpha1.Feature) (managed.ExternalDelete, error) {
+	id := meta.GetExternalName(cr)
+	err := e.client.DeleteFeature(ctx, id)
+	if err == nil || growthbook.IsNotFound(err) {
+		return managed.ExternalDelete{}, nil
+	}
+	if !growthbook.IsArchiveRequired(err) {
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteFeature)
+	}
+
+	archived := true
+	if _, archiveErr := e.client.UpdateFeature(ctx, id, growthbook.FeatureRequest{Archived: &archived}); archiveErr != nil {
+		return managed.ExternalDelete{}, errors.Wrap(archiveErr, errArchiveFeature)
+	}
+
+	if err := e.client.DeleteFeature(ctx, id); err != nil && !growthbook.IsNotFound(err) {
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteFeature)
+	}
+
+	return managed.ExternalDelete{}, nil
 }
 
-func (c *external) Disconnect(ctx context.Context) error {
+// Disconnect is a no-op: the HTTP client holds no long-lived connection.
+func (e *external) Disconnect(_ context.Context) error {
 	return nil
 }
