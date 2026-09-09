@@ -34,7 +34,13 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: A SDKConnection is an example API type.
+        description: |-
+          A SDKConnection is a GrowthBook SDK Connection: a client key an
+          application uses to fetch feature flag and experiment definitions for one
+          environment (and optionally a subset of projects). Applying this resource
+          with spec.writeConnectionSecretToRef set writes the resulting client "key"
+          (and, when the proxy is enabled, "proxySigningKey" and "proxyHost") into
+          the referenced Secret.
         properties:
           apiVersion:
             description: |-
@@ -57,13 +63,125 @@ spec:
             description: A SDKConnectionSpec defines the desired state of a SDKConnection.
             properties:
               forProvider:
-                description: SDKConnectionParameters are the configurable fields of
-                  a SDKConnection.
+                description: |-
+                  SDKConnectionParameters are the configurable fields of a GrowthBook SDK
+                  Connection. Every optional field is a pointer so that only fields the user
+                  actually sets participate in drift detection; a nil pointer means
+                  "unmanaged", not "false"/"empty".
                 properties:
-                  configurableField:
+                  allowedCustomFieldsInMetadata:
+                    description: |-
+                      AllowedCustomFieldsInMetadata limits which custom fields are included
+                      when IncludeCustomFieldsInMetadata is set.
+                    items:
+                      type: string
+                    type: array
+                  encryptPayload:
+                    description: EncryptPayload enables payload encryption for this
+                      connection.
+                    type: boolean
+                  environment:
+                    description: |-
+                      Environment is the id of the GrowthBook environment this connection
+                      serves.
+                    minLength: 1
+                    type: string
+                  hashSecureAttributes:
+                    description: |-
+                      HashSecureAttributes hashes secure attributes before they leave the
+                      server.
+                    type: boolean
+                  includeCustomFieldsInMetadata:
+                    description: |-
+                      IncludeCustomFieldsInMetadata includes custom fields in feature
+                      metadata.
+                    type: boolean
+                  includeDraftExperimentRefs:
+                    description: |-
+                      IncludeDraftExperimentRefs includes experiment-ref rules linked to
+                      draft experiments in the SDK payload.
+                    type: boolean
+                  includeDraftExperiments:
+                    description: |-
+                      IncludeDraftExperiments includes draft (not yet running) experiments
+                      in the SDK payload.
+                    type: boolean
+                  includeExperimentNames:
+                    description: IncludeExperimentNames includes experiment names
+                      in the SDK payload.
+                    type: boolean
+                  includeExperimentScheduleInMetadata:
+                    description: |-
+                      IncludeExperimentScheduleInMetadata includes experiment scheduling
+                      info in feature metadata.
+                    type: boolean
+                  includeProjectIdInMetadata:
+                    description: |-
+                      IncludeProjectIdInMetadata includes the project id in feature
+                      metadata.
+                    type: boolean
+                  includeRedirectExperiments:
+                    description: |-
+                      IncludeRedirectExperiments includes URL redirect experiments in the
+                      SDK payload.
+                    type: boolean
+                  includeReferencedPrerequisites:
+                    description: |-
+                      IncludeReferencedPrerequisites carries prerequisite feature flags into
+                      the payload even when they target other projects.
+                    type: boolean
+                  includeRuleIds:
+                    description: IncludeRuleIds includes rule ids in the SDK payload.
+                    type: boolean
+                  includeTagsInMetadata:
+                    description: IncludeTagsInMetadata includes tags in feature metadata.
+                    type: boolean
+                  includeVisualExperiments:
+                    description: |-
+                      IncludeVisualExperiments includes visual editor experiments in the
+                      SDK payload.
+                    type: boolean
+                  language:
+                    description: |-
+                      Language is the SDK language/platform this connection targets, for
+                      example "javascript", "react", "go", or "nodejs".
+                    minLength: 1
+                    type: string
+                  name:
+                    description: Name is the human-readable connection name.
+                    minLength: 1
+                    type: string
+                  projects:
+                    description: |-
+                      Projects restricts the connection to the given project ids. A nil
+                      value leaves project scoping unmanaged; an empty list clears it.
+                    items:
+                      type: string
+                    type: array
+                  proxyEnabled:
+                    description: ProxyEnabled enables the GrowthBook proxy for this
+                      connection.
+                    type: boolean
+                  proxyHost:
+                    description: ProxyHost is the proxy host to use when ProxyEnabled
+                      is true.
+                    type: string
+                  remoteEvalEnabled:
+                    description: RemoteEvalEnabled enables remote evaluation for this
+                      connection.
+                    type: boolean
+                  savedGroupReferencesEnabled:
+                    description: |-
+                      SavedGroupReferencesEnabled enables saved group references in the SDK
+                      payload.
+                    type: boolean
+                  sdkVersion:
+                    description: SDKVersion is the SDK version this connection targets.
                     type: string
                 required:
-                - configurableField
+                - environment
+                - language
+                - name
                 type: object
               managementPolicies:
                 default:
@@ -128,15 +246,52 @@ spec:
               SDKConnection.
             properties:
               atProvider:
-                description: SDKConnectionObservation are the observable fields of
-                  a SDKConnection.
+                description: |-
+                  SDKConnectionObservation are the observable, non-secret fields of a
+                  GrowthBook SDK Connection. The client key and proxy signing key are
+                  secrets: they are only ever surfaced through connection details, never
+                  written to status.
                 properties:
-                  configurableField:
+                  connected:
+                    description: |-
+                      Connected reports whether GrowthBook has seen this connection make an
+                      SDK request at least once.
+                    type: boolean
+                  dateCreated:
+                    description: DateCreated is the RFC 3339 creation timestamp reported
+                      by GrowthBook.
                     type: string
-                  observableField:
+                  dateUpdated:
+                    description: |-
+                      DateUpdated is the RFC 3339 last-update timestamp reported by
+                      GrowthBook.
                     type: string
-                required:
-                - configurableField
+                  id:
+                    description: ID is the GrowthBook-assigned connection id ("sdk_...").
+                    type: string
+                  languages:
+                    description: |-
+                      Languages is the set of SDK languages GrowthBook reports for this
+                      connection.
+                    items:
+                      type: string
+                    type: array
+                  organization:
+                    description: |-
+                      Organization is the GrowthBook organization id that owns the
+                      connection.
+                    type: string
+                  project:
+                    description: |-
+                      Project is the first project GrowthBook associates with this
+                      connection, kept for backwards compatibility with older API
+                      responses. Prefer Projects on the spec.
+                    type: string
+                  sseEnabled:
+                    description: |-
+                      SSEEnabled reports whether server-sent events are enabled for this
+                      connection.
+                    type: boolean
                 type: object
               conditions:
                 description: Conditions of the resource.

@@ -1,0 +1,26 @@
+# SDKConnection creates a GrowthBook SDK client key scoped to one
+# environment (and optionally a subset of projects). writeConnectionSecretToRef
+# receives the client "key" and, when the proxy is enabled, "proxySigningKey"
+# and "proxyHost" as well, so applications can consume them without ever
+# reading them out of status.
+apiVersion: sdk.growthbook.crossplane.io/v1alpha1
+kind: SDKConnection
+metadata:
+  name: web-production
+  namespace: default
+spec:
+  forProvider:
+    name: web-production
+    language: javascript
+    environment: production
+    projects:
+      - prj_website
+    encryptPayload: false
+    includeVisualExperiments: true
+    includeDraftExperiments: false
+    hashSecureAttributes: true
+  writeConnectionSecretToRef:
+    name: web-production-sdk-connection
+  providerConfigRef:
+    kind: ProviderConfig
+    name: default
