@@ -26,7 +26,26 @@ GOLANGCILINT_VERSION = 2.13.2
 # ====================================================================================
 # Setup Kubernetes tools
 
+# NOTE(safe-start-fix): the crossplane-build submodule pins
+# CROSSPLANE_CLI_VERSION to v1.20.0 (the legacy v1 "crank" binary), whose
+# meta.pkg.crossplane.io/v1 Provider Go type predates the capabilities
+# field. crank xpkg build unmarshals package/crossplane.yaml into that old
+# type, silently dropping spec.capabilities, so the built xpkg never
+# carries safe-start and Crossplane installs it without safe-start
+# behavior. Pin to a v2 CLI release that knows about capabilities, and
+# override the download recipe: the v2 CLI is published on
+# cli.crossplane.io as "crossplane". Do not use releases.crossplane.io for
+# it: that host serves the core controller binary at the same path, which
+# has no xpkg subcommand.
+CROSSPLANE_CLI_VERSION := v2.4.0
+
 -include build/makelib/k8s_tools.mk
+
+$(CROSSPLANE_CLI):
+	@$(INFO) installing Crossplane CLI $(CROSSPLANE_CLI_VERSION)
+	@curl -fsSLo $(CROSSPLANE_CLI) --create-dirs https://cli.crossplane.io/$(CROSSPLANE_CLI_CHANNEL)/$(CROSSPLANE_CLI_VERSION)/bin/$(SAFEHOST_PLATFORM)/crossplane?source=build || $(FAIL)
+	@chmod +x $(CROSSPLANE_CLI)
+	@$(OK) installing Crossplane CLI $(CROSSPLANE_CLI_VERSION)
 
 # ====================================================================================
 # Setup Images
