@@ -1,0 +1,168 @@
+/*
+Copyright 2025 The Crossplane Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package feature
+
+import (
+	"sort"
+
+	v1alpha1 "github.com/jz-wilson/provider-growthbook/apis/feature/v1alpha1"
+	"github.com/jz-wilson/provider-growthbook/internal/clients/growthbook"
+)
+
+// createRequest builds the POST body, including the create-only id and
+// valueType.
+func createRequest(id string, p v1alpha1.FeatureParameters) growthbook.FeatureRequest {
+	req := updateRequest(p)
+	req.ID = id
+	req.ValueType = p.ValueType
+	return req
+}
+
+// updateRequest builds the update body from the mutable fields only.
+func updateRequest(p v1alpha1.FeatureParameters) growthbook.FeatureRequest {
+	return growthbook.FeatureRequest{
+		DefaultValue: p.DefaultValue,
+		Description:  p.Description,
+		Project:      p.Project,
+		Tags:         p.Tags,
+		Archived:     p.Archived,
+		Owner:        p.Owner,
+		Environments: environmentsRequest(p.Environments),
+	}
+}
+
+// environmentsRequest converts the user-set environment map to its request
+// shape. A nil map stays nil so an update never touches environments the
+// user did not configure.
+func environmentsRequest(envs map[string]v1alpha1.FeatureEnvironment) map[string]growthbook.FeatureEnvironmentRequest {
+	if envs == nil {
+		return nil
+	}
+	out := make(map[string]growthbook.FeatureEnvironmentRequest, len(envs))
+	for k, v := range envs {
+		out[k] = growthbook.FeatureEnvironmentRequest{Enabled: v.Enabled}
+	}
+	return out
+}
+
+// observation maps the API object onto status.atProvider.
+func observation(f *growthbook.Feature) v1alpha1.FeatureObservation {
+	obs := v1alpha1.FeatureObservation{
+		ID:          f.ID,
+		DateCreated: f.DateCreated,
+		DateUpdated: f.DateUpdated,
+	}
+	if f.Revision != nil {
+		obs.Revision = v1alpha1.FeatureRevisionObservation{Version: f.Revision.Version}
+	}
+	if f.Environments != nil {
+		obs.Environments = make(map[string]v1alpha1.FeatureEnvironmentObservation, len(f.Environments))
+		for k, v := range f.Environments {
+			obs.Environments[k] = v1alpha1.FeatureEnvironmentObservation{Enabled: v.Enabled}
+		}
+	}
+	return obs
+}
+
+// lateInitialize fills optional fields the user left unset from the API so
+// the spec reflects what GrowthBook actually holds. It reports whether the
+// spec changed.
+func lateInitialize(p *v1alpha1.FeatureParameters, ext *growthbook.Feature) bool {
+	changed := false
+	if p.Description == nil {
+		v := ext.Description
+		p.Description = &v
+		changed = true
+	}
+	if p.Owner == nil && ext.Owner != "" {
+		v := ext.Owner
+		p.Owner = &v
+		changed = true
+	}
+	if p.Project == nil && ext.Project != "" {
+		v := ext.Project
+		p.Project = &v
+		changed = true
+	}
+	return changed
+}
+
+// isUpToDate compares only the fields the user set. Tags compare as a set.
+// Environments compare per key the user set; a key the user never
+// configured is never inspected, so out-of-band changes to it cannot
+// trigger drift.
+func isUpToDate(p v1alpha1.FeatureParameters, ext *growthbook.Feature) bool {
+	return valueUpToDate(p, ext) && metadataUpToDate(p, ext) && environmentsUpToDate(p.Environments, ext.Environments)
+}
+
+// valueUpToDate compares the feature's value fields.
+func valueUpToDate(p v1alpha1.FeatureParameters, ext *growthbook.Feature) bool {
+	return p.ValueType == ext.ValueType && p.DefaultValue == ext.DefaultValue
+}
+
+// metadataUpToDate compares the optional descriptive fields the user set.
+func metadataUpToDate(p v1alpha1.FeatureParameters, ext *growthbook.Feature) bool {
+	switch {
+	case p.Description != nil && *p.Description != ext.Description:
+		return false
+	case p.Project != nil && *p.Project != ext.Project:
+		return false
+	}
+	return ownershipUpToDate(p, ext)
+}
+
+// ownershipUpToDate compares archived, owner, and tags.
+func ownershipUpToDate(p v1alpha1.FeatureParameters, ext *growthbook.Feature) bool {
+	switch {
+	case p.Archived != nil && *p.Archived != ext.Archived:
+		return false
+	case p.Owner != nil && *p.Owner != ext.Owner:
+		return false
+	case p.Tags != nil && !sameSet(p.Tags, ext.Tags):
+		return false
+	}
+	return true
+}
+
+func environmentsUpToDate(want map[string]v1alpha1.FeatureEnvironment, got map[string]growthbook.FeatureEnvironment) bool {
+	for k, w := range want {
+		if w.Enabled == nil {
+			continue
+		}
+		g, ok := got[k]
+		if !ok || g.Enabled != *w.Enabled {
+			return false
+		}
+	}
+	return true
+}
+
+func sameSet(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	as := append([]string(nil), a...)
+	bs := append([]string(nil), b...)
+	sort.Strings(as)
+	sort.Strings(bs)
+	for i := range as {
+		if as[i] != bs[i] {
+			return false
+		}
+	}
+	return true
+}
