@@ -129,7 +129,7 @@ jobs:
         run: |
           curl -fsSL "https://github.com/crossplane/uptest/releases/download/${UPTEST_VERSION}/uptest_linux-amd64" -o /usr/local/bin/uptest
           chmod +x /usr/local/bin/uptest
-          uptest --version
+          uptest e2e --help >/dev/null
       - name: Run uptest
         run: |
           # e2e/manifests holds what works on an unlicensed GrowthBook (see
