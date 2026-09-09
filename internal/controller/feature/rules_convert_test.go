@@ -45,39 +45,39 @@ func TestRulesRequest(t *testing.T) {
 		"Force": {
 			reason: "A force rule converts its condition, savedGroups, environments, and value.",
 			rules: []v1alpha1.FeatureRule{{
-				Type:            "force",
+				Type:            ruleTypeForce,
 				Description:     ptr("force rule"),
 				Enabled:         ptr(true),
 				Condition:       ptr(`{"country":"US"}`),
-				SavedGroups:     []v1alpha1.SavedGroupTargeting{{Match: "any", IDs: []string{"sg_1", "sg_2"}}},
+				SavedGroups:     []v1alpha1.SavedGroupTargeting{{Match: matchAny, IDs: []string{savedGroupID1, "sg_2"}}},
 				AllEnvironments: ptr(false),
-				Environments:    []string{"production"},
-				Value:           ptr("true"),
+				Environments:    []string{envProduction},
+				Value:           ptr(valTrue),
 			}},
 			want: &[]growthbook.FeatureRule{{
-				Type:            "force",
+				Type:            ruleTypeForce,
 				Description:     "force rule",
 				Enabled:         ptr(true),
 				Condition:       `{"country":"US"}`,
-				SavedGroups:     []growthbook.FeatureSavedGroupTargeting{{Match: "any", IDs: []string{"sg_1", "sg_2"}}},
+				SavedGroups:     []growthbook.FeatureSavedGroupTargeting{{Match: matchAny, IDs: []string{savedGroupID1, "sg_2"}}},
 				AllEnvironments: false,
-				Environments:    []string{"production"},
-				Value:           "true",
+				Environments:    []string{envProduction},
+				Value:           valTrue,
 			}},
 		},
 		"Rollout": {
 			reason: "A rollout rule converts its coverage string to a wire float and its hashAttribute.",
 			rules: []v1alpha1.FeatureRule{{
-				Type:            "rollout",
+				Type:            ruleTypeRollout,
 				AllEnvironments: ptr(true),
-				Value:           ptr("true"),
+				Value:           ptr(valTrue),
 				Coverage:        ptr("0.25"),
 				HashAttribute:   ptr("id"),
 			}},
 			want: &[]growthbook.FeatureRule{{
-				Type:            "rollout",
+				Type:            ruleTypeRollout,
 				AllEnvironments: true,
-				Value:           "true",
+				Value:           valTrue,
 				Coverage:        ptr(0.25),
 				HashAttribute:   "id",
 			}},
@@ -91,7 +91,7 @@ func TestRulesRequest(t *testing.T) {
 				ExperimentID:    ptr("exp_1"),
 				Variations: []v1alpha1.FeatureRuleVariation{
 					{VariationID: "0", Value: "false"},
-					{VariationID: "1", Value: "true"},
+					{VariationID: "1", Value: valTrue},
 				},
 			}},
 			want: &[]growthbook.FeatureRule{{
@@ -101,14 +101,14 @@ func TestRulesRequest(t *testing.T) {
 				ExperimentID:    "exp_1",
 				Variations: []growthbook.FeatureRuleVariation{
 					{VariationID: "0", Value: "false"},
-					{VariationID: "1", Value: "true"},
+					{VariationID: "1", Value: valTrue},
 				},
 			}},
 		},
 		"BadCoverage": {
 			reason: "A non-decimal coverage value is a defensive error, even though the CRD pattern should prevent it.",
 			rules: []v1alpha1.FeatureRule{{
-				Type:            "rollout",
+				Type:            ruleTypeRollout,
 				AllEnvironments: ptr(true),
 				Coverage:        ptr("not-a-number"),
 			}},
@@ -137,12 +137,12 @@ func TestRulesRequest(t *testing.T) {
 
 func TestRulesObservation(t *testing.T) {
 	got := rulesObservation([]growthbook.FeatureRule{
-		{ID: "rule_1", Type: "force", Enabled: ptr(true), Environments: []string{"production"}},
-		{ID: "rule_2", Type: "rollout", Enabled: nil, AllEnvironments: true},
+		{ID: "rule_1", Type: ruleTypeForce, Enabled: ptr(true), Environments: []string{envProduction}},
+		{ID: "rule_2", Type: ruleTypeRollout, Enabled: nil, AllEnvironments: true},
 	})
 	want := []v1alpha1.FeatureRuleObservation{
-		{ID: "rule_1", Type: "force", Enabled: true, Environments: []string{"production"}},
-		{ID: "rule_2", Type: "rollout", Enabled: true},
+		{ID: "rule_1", Type: ruleTypeForce, Enabled: true, Environments: []string{envProduction}},
+		{ID: "rule_2", Type: ruleTypeRollout, Enabled: true},
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("rulesObservation(...): -want, +got:\n%s\n", diff)

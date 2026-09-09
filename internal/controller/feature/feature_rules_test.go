@@ -99,8 +99,8 @@ func TestObserveRulesStatus(t *testing.T) {
 	if len(cr.Status.AtProvider.Rules) != 1 {
 		t.Fatalf("atProvider.rules = %+v, want 1 entry", cr.Status.AtProvider.Rules)
 	}
-	if cr.Status.AtProvider.Rules[0].Type != "force" {
-		t.Errorf("atProvider.rules[0].type = %q, want %q", cr.Status.AtProvider.Rules[0].Type, "force")
+	if cr.Status.AtProvider.Rules[0].Type != ruleTypeForce {
+		t.Errorf("atProvider.rules[0].type = %q, want %q", cr.Status.AtProvider.Rules[0].Type, ruleTypeForce)
 	}
 }
 

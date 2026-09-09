@@ -25,18 +25,18 @@ import (
 
 func forceRule() v1alpha1.FeatureRule {
 	return v1alpha1.FeatureRule{
-		Type:            "force",
+		Type:            ruleTypeForce,
 		AllEnvironments: ptr(true),
 		Condition:       ptr(`{"country":"US"}`),
-		Value:           ptr("true"),
+		Value:           ptr(valTrue),
 	}
 }
 
 func rolloutRule() v1alpha1.FeatureRule {
 	return v1alpha1.FeatureRule{
-		Type:            "rollout",
+		Type:            ruleTypeRollout,
 		AllEnvironments: ptr(true),
-		Value:           ptr("true"),
+		Value:           ptr(valTrue),
 		Coverage:        ptr("0.50"),
 		HashAttribute:   ptr("id"),
 	}
@@ -55,9 +55,9 @@ func remoteRuleFrom(r v1alpha1.FeatureRule) growthbook.FeatureRule {
 
 func TestRulesUpToDate(t *testing.T) {
 	cases := map[string]struct {
-		reason string
-		want   []v1alpha1.FeatureRule
-		got    []growthbook.FeatureRule
+		reason   string
+		want     []v1alpha1.FeatureRule
+		got      []growthbook.FeatureRule
 		upToDate bool
 	}{
 		"NilNeverDrifts": {
@@ -119,54 +119,54 @@ func TestRulesUpToDate(t *testing.T) {
 		"AllEnvironmentsTrueIgnoresEnvironmentsList": {
 			reason: "When allEnvironments is true, the environments list is irrelevant on both sides.",
 			want: []v1alpha1.FeatureRule{{
-				Type: "force", AllEnvironments: ptr(true), Value: ptr("true"),
+				Type: ruleTypeForce, AllEnvironments: ptr(true), Value: ptr(valTrue),
 			}},
 			got: []growthbook.FeatureRule{{
-				Type: "force", AllEnvironments: true, Value: "true", Enabled: ptr(true), Environments: []string{"staging"},
+				Type: ruleTypeForce, AllEnvironments: true, Value: valTrue, Enabled: ptr(true), Environments: []string{envStaging},
 			}},
 			upToDate: true,
 		},
 		"EnvironmentsSetOrderInsensitive": {
 			reason: "The environments list compares as a set, so reordered entries do not drift.",
 			want: []v1alpha1.FeatureRule{{
-				Type: "force", AllEnvironments: ptr(false), Environments: []string{"production", "staging"}, Value: ptr("true"),
+				Type: ruleTypeForce, AllEnvironments: ptr(false), Environments: []string{envProduction, envStaging}, Value: ptr(valTrue),
 			}},
 			got: []growthbook.FeatureRule{{
-				Type: "force", AllEnvironments: false, Environments: []string{"staging", "production"}, Value: "true", Enabled: ptr(true),
+				Type: ruleTypeForce, AllEnvironments: false, Environments: []string{envStaging, envProduction}, Value: valTrue, Enabled: ptr(true),
 			}},
 			upToDate: true,
 		},
 		"EnvironmentsSetDrift": {
 			reason: "A different set of environments drifts.",
 			want: []v1alpha1.FeatureRule{{
-				Type: "force", AllEnvironments: ptr(false), Environments: []string{"production"}, Value: ptr("true"),
+				Type: ruleTypeForce, AllEnvironments: ptr(false), Environments: []string{envProduction}, Value: ptr(valTrue),
 			}},
 			got: []growthbook.FeatureRule{{
-				Type: "force", AllEnvironments: false, Environments: []string{"staging"}, Value: "true", Enabled: ptr(true),
+				Type: ruleTypeForce, AllEnvironments: false, Environments: []string{envStaging}, Value: valTrue, Enabled: ptr(true),
 			}},
 			upToDate: false,
 		},
 		"SavedGroupsIDsOrderInsensitive": {
 			reason: "The ids inside one savedGroups entry compare as a set.",
 			want: []v1alpha1.FeatureRule{{
-				Type: "force", AllEnvironments: ptr(true), Value: ptr("true"),
-				SavedGroups: []v1alpha1.SavedGroupTargeting{{Match: "any", IDs: []string{"sg_1", "sg_2"}}},
+				Type: ruleTypeForce, AllEnvironments: ptr(true), Value: ptr(valTrue),
+				SavedGroups: []v1alpha1.SavedGroupTargeting{{Match: matchAny, IDs: []string{savedGroupID1, "sg_2"}}},
 			}},
 			got: []growthbook.FeatureRule{{
-				Type: "force", AllEnvironments: true, Value: "true", Enabled: ptr(true),
-				SavedGroups: []growthbook.FeatureSavedGroupTargeting{{Match: "any", IDs: []string{"sg_2", "sg_1"}}},
+				Type: ruleTypeForce, AllEnvironments: true, Value: valTrue, Enabled: ptr(true),
+				SavedGroups: []growthbook.FeatureSavedGroupTargeting{{Match: matchAny, IDs: []string{"sg_2", savedGroupID1}}},
 			}},
 			upToDate: true,
 		},
 		"SavedGroupsMatchDrifts": {
 			reason: "A changed match mode is drift even if the id set is identical.",
 			want: []v1alpha1.FeatureRule{{
-				Type: "force", AllEnvironments: ptr(true), Value: ptr("true"),
-				SavedGroups: []v1alpha1.SavedGroupTargeting{{Match: "any", IDs: []string{"sg_1"}}},
+				Type: ruleTypeForce, AllEnvironments: ptr(true), Value: ptr(valTrue),
+				SavedGroups: []v1alpha1.SavedGroupTargeting{{Match: matchAny, IDs: []string{savedGroupID1}}},
 			}},
 			got: []growthbook.FeatureRule{{
-				Type: "force", AllEnvironments: true, Value: "true", Enabled: ptr(true),
-				SavedGroups: []growthbook.FeatureSavedGroupTargeting{{Match: "none", IDs: []string{"sg_1"}}},
+				Type: ruleTypeForce, AllEnvironments: true, Value: valTrue, Enabled: ptr(true),
+				SavedGroups: []growthbook.FeatureSavedGroupTargeting{{Match: "none", IDs: []string{savedGroupID1}}},
 			}},
 			upToDate: false,
 		},
@@ -175,7 +175,7 @@ func TestRulesUpToDate(t *testing.T) {
 			want: []v1alpha1.FeatureRule{{
 				Type: "experiment-ref", AllEnvironments: ptr(true), ExperimentID: ptr("exp_1"),
 				Variations: []v1alpha1.FeatureRuleVariation{
-					{VariationID: "1", Value: "true"},
+					{VariationID: "1", Value: valTrue},
 					{VariationID: "0", Value: "false"},
 				},
 			}},
@@ -183,7 +183,7 @@ func TestRulesUpToDate(t *testing.T) {
 				Type: "experiment-ref", AllEnvironments: true, ExperimentID: "exp_1", Enabled: ptr(true),
 				Variations: []growthbook.FeatureRuleVariation{
 					{VariationID: "0", Value: "false"},
-					{VariationID: "1", Value: "true"},
+					{VariationID: "1", Value: valTrue},
 				},
 			}},
 			upToDate: true,
@@ -191,20 +191,20 @@ func TestRulesUpToDate(t *testing.T) {
 		"UserSetIDMustMatch": {
 			reason: "A user-set rule id must match the observed id.",
 			want: []v1alpha1.FeatureRule{{
-				Type: "force", ID: ptr("rule_1"), AllEnvironments: ptr(true), Value: ptr("true"),
+				Type: ruleTypeForce, ID: ptr("rule_1"), AllEnvironments: ptr(true), Value: ptr(valTrue),
 			}},
 			got: []growthbook.FeatureRule{{
-				Type: "force", ID: "rule_2", AllEnvironments: true, Value: "true", Enabled: ptr(true),
+				Type: ruleTypeForce, ID: "rule_2", AllEnvironments: true, Value: valTrue, Enabled: ptr(true),
 			}},
 			upToDate: false,
 		},
 		"ServerAssignedIDIgnoredWhenUnset": {
 			reason: "A server-assigned id the user never set does not cause drift.",
 			want: []v1alpha1.FeatureRule{{
-				Type: "force", AllEnvironments: ptr(true), Value: ptr("true"),
+				Type: ruleTypeForce, AllEnvironments: ptr(true), Value: ptr(valTrue),
 			}},
 			got: []growthbook.FeatureRule{{
-				Type: "force", ID: "rule_1", AllEnvironments: true, Value: "true", Enabled: ptr(true),
+				Type: ruleTypeForce, ID: "rule_1", AllEnvironments: true, Value: valTrue, Enabled: ptr(true),
 			}},
 			upToDate: true,
 		},

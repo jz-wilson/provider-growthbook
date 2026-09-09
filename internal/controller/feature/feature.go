@@ -54,6 +54,7 @@ const (
 	errUpdateFeature  = "cannot update feature"
 	errDeleteFeature  = "cannot delete feature"
 	errArchiveFeature = "cannot archive feature before delete"
+	errFeatureRules   = "invalid feature rules"
 )
 
 // FeatureClient is the subset of the GrowthBook API the controller needs.
@@ -200,7 +201,12 @@ func (e *external) Observe(ctx context.Context, cr *v1alpha1.Feature) (managed.E
 
 // Create posts the feature under the external name as its key.
 func (e *external) Create(ctx context.Context, cr *v1alpha1.Feature) (managed.ExternalCreation, error) {
-	f, err := e.client.CreateFeature(ctx, createRequest(meta.GetExternalName(cr), cr.Spec.ForProvider))
+	req, err := createRequest(meta.GetExternalName(cr), cr.Spec.ForProvider)
+	if err != nil {
+		return managed.ExternalCreation{}, errors.Wrap(err, errFeatureRules)
+	}
+
+	f, err := e.client.CreateFeature(ctx, req)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, errCreateFeature)
 	}
@@ -214,7 +220,12 @@ func (e *external) Create(ctx context.Context, cr *v1alpha1.Feature) (managed.Ex
 // sent. GrowthBook publishes the change immediately; there is no separate
 // draft step for these fields.
 func (e *external) Update(ctx context.Context, cr *v1alpha1.Feature) (managed.ExternalUpdate, error) {
-	f, err := e.client.UpdateFeature(ctx, meta.GetExternalName(cr), updateRequest(cr.Spec.ForProvider))
+	req, err := updateRequest(cr.Spec.ForProvider)
+	if err != nil {
+		return managed.ExternalUpdate{}, errors.Wrap(err, errFeatureRules)
+	}
+
+	f, err := e.client.UpdateFeature(ctx, meta.GetExternalName(cr), req)
 	if err != nil {
 		return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateFeature)
 	}

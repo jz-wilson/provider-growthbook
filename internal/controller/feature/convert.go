@@ -25,15 +25,22 @@ import (
 
 // createRequest builds the POST body, including the create-only id and
 // valueType.
-func createRequest(id string, p v1alpha1.FeatureParameters) growthbook.FeatureRequest {
-	req := updateRequest(p)
+func createRequest(id string, p v1alpha1.FeatureParameters) (growthbook.FeatureRequest, error) {
+	req, err := updateRequest(p)
+	if err != nil {
+		return req, err
+	}
 	req.ID = id
 	req.ValueType = p.ValueType
-	return req
+	return req, nil
 }
 
 // updateRequest builds the update body from the mutable fields only.
-func updateRequest(p v1alpha1.FeatureParameters) growthbook.FeatureRequest {
+func updateRequest(p v1alpha1.FeatureParameters) (growthbook.FeatureRequest, error) {
+	rules, err := rulesRequest(p.Rules)
+	if err != nil {
+		return growthbook.FeatureRequest{}, err
+	}
 	return growthbook.FeatureRequest{
 		DefaultValue: p.DefaultValue,
 		Description:  p.Description,
@@ -42,7 +49,8 @@ func updateRequest(p v1alpha1.FeatureParameters) growthbook.FeatureRequest {
 		Archived:     p.Archived,
 		Owner:        p.Owner,
 		Environments: environmentsRequest(p.Environments),
-	}
+		Rules:        rules,
+	}, nil
 }
 
 // environmentsRequest converts the user-set environment map to its request
@@ -75,6 +83,7 @@ func observation(f *growthbook.Feature) v1alpha1.FeatureObservation {
 			obs.Environments[k] = v1alpha1.FeatureEnvironmentObservation{Enabled: v.Enabled}
 		}
 	}
+	obs.Rules = rulesObservation(f.Rules)
 	return obs
 }
 
@@ -106,7 +115,8 @@ func lateInitialize(p *v1alpha1.FeatureParameters, ext *growthbook.Feature) bool
 // configured is never inspected, so out-of-band changes to it cannot
 // trigger drift.
 func isUpToDate(p v1alpha1.FeatureParameters, ext *growthbook.Feature) bool {
-	return valueUpToDate(p, ext) && metadataUpToDate(p, ext) && environmentsUpToDate(p.Environments, ext.Environments)
+	return valueUpToDate(p, ext) && metadataUpToDate(p, ext) &&
+		environmentsUpToDate(p.Environments, ext.Environments) && rulesUpToDate(p.Rules, ext.Rules)
 }
 
 // valueUpToDate compares the feature's value fields.

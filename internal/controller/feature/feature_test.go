@@ -71,7 +71,7 @@ func newFeature(mods ...func(*v1alpha1.Feature)) *v1alpha1.Feature {
 	cr.SetName(featureID)
 	meta.SetExternalName(cr, featureID)
 	cr.Spec.ForProvider.ValueType = "boolean"
-	cr.Spec.ForProvider.DefaultValue = "true"
+	cr.Spec.ForProvider.DefaultValue = valTrue
 	for _, m := range mods {
 		m(cr)
 	}
@@ -103,15 +103,15 @@ func remote() *growthbook.Feature {
 	return &growthbook.Feature{
 		ID:           featureID,
 		ValueType:    "boolean",
-		DefaultValue: "true",
+		DefaultValue: valTrue,
 		Description:  "A feature",
 		Owner:        "alice",
 		Project:      "prj_1",
 		Tags:         []string{"a", "b"},
 		Archived:     false,
 		Environments: map[string]growthbook.FeatureEnvironment{
-			"production": {Enabled: true},
-			"staging":    {Enabled: false},
+			envProduction: {Enabled: true},
+			envStaging:    {Enabled: false},
 		},
 		DateCreated: "2026-01-01T00:00:00Z",
 		DateUpdated: "2026-01-02T00:00:00Z",
@@ -147,7 +147,7 @@ func TestObserve(t *testing.T) {
 		"UpToDateLateInit": {
 			reason: "Unset optional fields are late-initialized from the API and count as up to date.",
 			client: &fakeClient{get: func(_ context.Context, _ string) (*growthbook.Feature, error) { return remote(), nil }},
-			cr:     newFeature(withTags("a", "b"), withEnvironment("production", true), withEnvironment("staging", false)),
+			cr:     newFeature(withTags("a", "b"), withEnvironment(envProduction, true), withEnvironment(envStaging, false)),
 			want: want{
 				o:           managed.ExternalObservation{ResourceExists: true, ResourceUpToDate: true, ResourceLateInitialized: true},
 				description: ptr("A feature"),
@@ -178,7 +178,7 @@ func TestObserve(t *testing.T) {
 		"EnvironmentDrift": {
 			reason: "An environment enabled flag the user set that differs from the API needs an update.",
 			client: &fakeClient{get: func(_ context.Context, _ string) (*growthbook.Feature, error) { return remote(), nil }},
-			cr:     newFeature(withDescription("A feature"), withTags("a", "b"), withEnvironment("production", false)),
+			cr:     newFeature(withDescription("A feature"), withTags("a", "b"), withEnvironment(envProduction, false)),
 			want: want{
 				o:           managed.ExternalObservation{ResourceExists: true, ResourceUpToDate: false, ResourceLateInitialized: true},
 				description: ptr("A feature"),
@@ -187,7 +187,7 @@ func TestObserve(t *testing.T) {
 		"UnmanagedEnvironmentIgnored": {
 			reason: "An environment the user never set on the spec is not compared, so it cannot drift.",
 			client: &fakeClient{get: func(_ context.Context, _ string) (*growthbook.Feature, error) { return remote(), nil }},
-			cr:     newFeature(withDescription("A feature"), withTags("a", "b"), withEnvironment("production", true)),
+			cr:     newFeature(withDescription("A feature"), withTags("a", "b"), withEnvironment(envProduction, true)),
 			want: want{
 				o:           managed.ExternalObservation{ResourceExists: true, ResourceUpToDate: true, ResourceLateInitialized: true},
 				description: ptr("A feature"),
@@ -238,7 +238,7 @@ func TestObserveStatus(t *testing.T) {
 	if cr.Status.AtProvider.DateCreated != "2026-01-01T00:00:00Z" || cr.Status.AtProvider.DateUpdated != "2026-01-02T00:00:00Z" {
 		t.Errorf("atProvider dates = %+v", cr.Status.AtProvider)
 	}
-	if !cr.Status.AtProvider.Environments["production"].Enabled || cr.Status.AtProvider.Environments["staging"].Enabled {
+	if !cr.Status.AtProvider.Environments[envProduction].Enabled || cr.Status.AtProvider.Environments[envStaging].Enabled {
 		t.Errorf("atProvider.environments = %+v", cr.Status.AtProvider.Environments)
 	}
 }
@@ -249,15 +249,15 @@ func TestCreate(t *testing.T) {
 		gotReq = req
 		return &growthbook.Feature{ID: req.ID, ValueType: req.ValueType, DefaultValue: req.DefaultValue}, nil
 	}}
-	cr := newFeature(withDescription("A feature"), withTags("a"), withEnvironment("production", true))
+	cr := newFeature(withDescription("A feature"), withTags("a"), withEnvironment(envProduction, true))
 
 	e := external{client: client}
 	if _, err := e.Create(context.Background(), cr); err != nil {
 		t.Fatalf("e.Create(...): unexpected error %v", err)
 	}
 	wantReq := growthbook.FeatureRequest{
-		ID: featureID, ValueType: "boolean", DefaultValue: "true", Description: ptr("A feature"), Tags: []string{"a"},
-		Environments: map[string]growthbook.FeatureEnvironmentRequest{"production": {Enabled: ptr(true)}},
+		ID: featureID, ValueType: "boolean", DefaultValue: valTrue, Description: ptr("A feature"), Tags: []string{"a"},
+		Environments: map[string]growthbook.FeatureEnvironmentRequest{envProduction: {Enabled: ptr(true)}},
 	}
 	if diff := cmp.Diff(wantReq, gotReq); diff != "" {
 		t.Errorf("request body: -want, +got:\n%s", diff)
@@ -274,7 +274,7 @@ func TestUpdate(t *testing.T) {
 		gotID, gotReq = id, req
 		return remote(), nil
 	}}
-	cr := newFeature(withDescription("A feature"), withArchived(true), withEnvironment("production", true))
+	cr := newFeature(withDescription("A feature"), withArchived(true), withEnvironment(envProduction, true))
 
 	e := external{client: client}
 	if _, err := e.Update(context.Background(), cr); err != nil {
