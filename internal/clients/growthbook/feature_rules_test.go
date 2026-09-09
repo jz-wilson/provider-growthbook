@@ -24,6 +24,15 @@ import (
 	"testing"
 )
 
+// Shared literals, factored out so this file does not push goconst's
+// package-wide occurrence count for these common test values over its
+// threshold.
+const (
+	featureRuleTestBooleanType = "boolean"
+	featureRuleTestValueTrue   = "true"
+	featureRuleTestFeatureID   = "ft_1"
+)
+
 func TestFeatureRuleEncodingForce(t *testing.T) {
 	rules := []FeatureRule{{
 		Type:            "force",
@@ -31,13 +40,13 @@ func TestFeatureRuleEncodingForce(t *testing.T) {
 		Enabled:         featurePtrBool(true),
 		Condition:       `{"country":"US"}`,
 		AllEnvironments: true,
-		Value:           "true",
+		Value:           featureRuleTestValueTrue,
 	}}
 
 	var gotBody map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&gotBody)
-		_ = json.NewEncoder(w).Encode(featureEnvelope{Feature: Feature{ID: "ft_1", ValueType: "boolean", DefaultValue: "true"}})
+		_ = json.NewEncoder(w).Encode(featureEnvelope{Feature: Feature{ID: featureRuleTestFeatureID, ValueType: featureRuleTestBooleanType, DefaultValue: featureRuleTestValueTrue}})
 	}))
 	defer srv.Close()
 
@@ -45,7 +54,7 @@ func TestFeatureRuleEncodingForce(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewFromSecret() error = %v", err)
 	}
-	if _, err := c.UpdateFeature(context.Background(), "ft_1", FeatureRequest{Rules: &rules}); err != nil {
+	if _, err := c.UpdateFeature(context.Background(), featureRuleTestFeatureID, FeatureRequest{Rules: &rules}); err != nil {
 		t.Fatalf("UpdateFeature() error = %v", err)
 	}
 
@@ -60,7 +69,7 @@ func TestFeatureRuleEncodingForce(t *testing.T) {
 		"enabled":         true,
 		"condition":       `{"country":"US"}`,
 		"allEnvironments": true,
-		"value":           "true",
+		"value":           featureRuleTestValueTrue,
 	}
 	for k, v := range want {
 		if rule[k] != v {
@@ -79,7 +88,7 @@ func TestFeatureRuleEncodingRollout(t *testing.T) {
 	rules := []FeatureRule{{
 		Type:            "rollout",
 		AllEnvironments: false,
-		Environments:    []string{"staging"},
+		Environments:    []string{"canary"},
 		Value:           "on",
 		Coverage:        &coverage,
 		HashAttribute:   "id",
@@ -88,7 +97,7 @@ func TestFeatureRuleEncodingRollout(t *testing.T) {
 	var gotBody map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&gotBody)
-		_ = json.NewEncoder(w).Encode(featureEnvelope{Feature: Feature{ID: "ft_1", ValueType: "string", DefaultValue: "off"}})
+		_ = json.NewEncoder(w).Encode(featureEnvelope{Feature: Feature{ID: featureRuleTestFeatureID, ValueType: "string", DefaultValue: "off"}})
 	}))
 	defer srv.Close()
 
@@ -96,7 +105,7 @@ func TestFeatureRuleEncodingRollout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewFromSecret() error = %v", err)
 	}
-	if _, err := c.UpdateFeature(context.Background(), "ft_1", FeatureRequest{Rules: &rules}); err != nil {
+	if _, err := c.UpdateFeature(context.Background(), featureRuleTestFeatureID, FeatureRequest{Rules: &rules}); err != nil {
 		t.Fatalf("UpdateFeature() error = %v", err)
 	}
 
@@ -109,8 +118,8 @@ func TestFeatureRuleEncodingRollout(t *testing.T) {
 		t.Errorf("allEnvironments = %#v, want false", rule["allEnvironments"])
 	}
 	envs, _ := rule["environments"].([]any)
-	if len(envs) != 1 || envs[0] != "staging" {
-		t.Errorf("environments = %#v, want [staging]", rule["environments"])
+	if len(envs) != 1 || envs[0] != "canary" {
+		t.Errorf("environments = %#v, want [canary]", rule["environments"])
 	}
 	// coverage must round-trip as a JSON number, not a string.
 	cov, ok := rule["coverage"].(float64)
@@ -136,7 +145,7 @@ func TestFeatureRuleEncodingExperimentRef(t *testing.T) {
 	var gotBody map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&gotBody)
-		_ = json.NewEncoder(w).Encode(featureEnvelope{Feature: Feature{ID: "ft_1", ValueType: "string", DefaultValue: "control"}})
+		_ = json.NewEncoder(w).Encode(featureEnvelope{Feature: Feature{ID: featureRuleTestFeatureID, ValueType: "string", DefaultValue: "control"}})
 	}))
 	defer srv.Close()
 
@@ -144,7 +153,7 @@ func TestFeatureRuleEncodingExperimentRef(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewFromSecret() error = %v", err)
 	}
-	if _, err := c.UpdateFeature(context.Background(), "ft_1", FeatureRequest{Rules: &rules}); err != nil {
+	if _, err := c.UpdateFeature(context.Background(), featureRuleTestFeatureID, FeatureRequest{Rules: &rules}); err != nil {
 		t.Fatalf("UpdateFeature() error = %v", err)
 	}
 
@@ -199,12 +208,12 @@ func TestFeatureGetDecodesRules(t *testing.T) {
 	coverage := 0.5
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(featureEnvelope{Feature: Feature{
-			ID:           "ft_1",
-			ValueType:    "boolean",
-			DefaultValue: "true",
+			ID:           featureRuleTestFeatureID,
+			ValueType:    featureRuleTestBooleanType,
+			DefaultValue: featureRuleTestValueTrue,
 			Rules: []FeatureRule{
-				{Type: "force", ID: "fr_1", AllEnvironments: true, Value: "true"},
-				{Type: "rollout", ID: "fr_2", AllEnvironments: false, Environments: []string{"production"}, Value: "true", Coverage: &coverage, HashAttribute: "id"},
+				{Type: "force", ID: "fr_1", AllEnvironments: true, Value: featureRuleTestValueTrue},
+				{Type: "rollout", ID: "fr_2", AllEnvironments: false, Environments: []string{"production"}, Value: featureRuleTestValueTrue, Coverage: &coverage, HashAttribute: "id"},
 			},
 		}})
 	}))
@@ -214,7 +223,7 @@ func TestFeatureGetDecodesRules(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewFromSecret() error = %v", err)
 	}
-	f, err := c.GetFeature(context.Background(), "ft_1")
+	f, err := c.GetFeature(context.Background(), featureRuleTestFeatureID)
 	if err != nil {
 		t.Fatalf("GetFeature() error = %v", err)
 	}

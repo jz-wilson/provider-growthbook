@@ -37,12 +37,13 @@ type FeatureEnvironment struct {
 // The feature key is the resource's external name (crossplane.io/
 // external-name annotation), defaulting to metadata.name.
 //
-// This milestone deliberately covers only the feature's value and its
-// per-environment enabled toggles. Rules, prerequisites, revisions, and
-// JSON schema validation are not modeled and are left for a later
-// milestone; a Feature managed here will report ResourceUpToDate based
-// solely on the fields below even if it also carries rules configured
-// out of band (for example through the GrowthBook UI).
+// This milestone covers the feature's value, its per-environment enabled
+// toggles, and its rules (force, rollout, and experiment-ref). Rule
+// prerequisites, revisions, and JSON schema validation are not modeled and
+// are left for a later milestone; a Feature managed here will report
+// ResourceUpToDate based solely on the fields below. When Rules is left
+// nil, rules are unmanaged and any configured out of band (for example
+// through the GrowthBook UI) are left untouched.
 //
 // Deleting a Feature normally issues a plain DELETE. Some organizations
 // disable "REST API always bypasses approval requirements", in which case
@@ -86,6 +87,13 @@ type FeatureParameters struct {
 	// out are never touched.
 	// +optional
 	Environments map[string]FeatureEnvironment `json:"environments,omitempty"`
+
+	// Rules is the feature's ordered rule list. Nil means rules are
+	// unmanaged (left as-is, including any configured out of band); a
+	// non-nil list, including an empty one, is authoritative and replaces
+	// the feature's entire rules array.
+	// +optional
+	Rules []FeatureRule `json:"rules,omitempty"`
 }
 
 // FeatureEnvironmentObservation is the observed state of a Feature within
@@ -118,6 +126,9 @@ type FeatureObservation struct {
 
 	// Environments reports the observed enabled state per environment.
 	Environments map[string]FeatureEnvironmentObservation `json:"environments,omitempty"`
+
+	// Rules reports the feature's observed rule list.
+	Rules []FeatureRuleObservation `json:"rules,omitempty"`
 }
 
 // A FeatureSpec defines the desired state of a Feature.
@@ -135,7 +146,7 @@ type FeatureStatus struct {
 // +kubebuilder:object:root=true
 
 // A Feature is a GrowthBook feature flag. This milestone manages its
-// value and per-environment enabled toggles; rules are not modeled.
+// value, per-environment enabled toggles, and rules.
 // +kubebuilder:printcolumn:name="READY",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
 // +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane\\.io/external-name"
