@@ -127,14 +127,16 @@ jobs:
           EOF
       - name: Install uptest
         run: |
-          curl -fsSL "https://github.com/crossplane/uptest/releases/download/${UPTEST_VERSION}/uptest_linux_amd64" -o /usr/local/bin/uptest
+          curl -fsSL "https://github.com/crossplane/uptest/releases/download/${UPTEST_VERSION}/uptest_linux-amd64" -o /usr/local/bin/uptest
           chmod +x /usr/local/bin/uptest
+          uptest --version
       - name: Run uptest
         run: |
           # e2e/manifests holds what works on an unlicensed GrowthBook (see
           # e2e/README.md). examples/ needs a licensed instance to create.
           EXAMPLES=$(find e2e/manifests -name '*.yaml' | sort | paste -sd,)
-          uptest e2e "$EXAMPLES" --default-timeout=300s --default-conditions=Ready
+          # Library mode embeds chainsaw and the Crossplane CLI, so no extra binaries.
+          uptest e2e "$EXAMPLES" --use-library-mode --default-timeout=300s --default-conditions=Ready
       - name: Dump cluster state on failure
         if: failure()
         run: |
