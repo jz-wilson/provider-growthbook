@@ -18,7 +18,6 @@ package feature
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/feature"
 
@@ -47,11 +46,22 @@ const (
 	errNewClient = "cannot create new Service"
 )
 
-// A NoOpService does nothing.
-type NoOpService struct{}
+// ErrNotImplemented is returned by every External operation on Feature. The
+// GrowthBook client for this resource has not been implemented yet, so
+// applying a Feature today would otherwise appear to succeed while never
+// actually reconciling anything against the GrowthBook API.
+var ErrNotImplemented = errors.New("Feature is not implemented yet in provider-growthbook")
+
+// A stubService is a placeholder for the GrowthBook client this controller
+// will eventually use. It intentionally does nothing yet.
+type stubService struct {
+	// creds are stored, not ignored, so that once a real client lands here
+	// wiring credentials through is a small diff rather than a rewrite.
+	creds []byte
+}
 
 var (
-	newNoOpService = func(_ []byte) (interface{}, error) { return &NoOpService{}, nil }
+	newStubService = func(creds []byte) (*stubService, error) { return &stubService{creds: creds}, nil }
 )
 
 // SetupGated adds a controller that reconciles Feature managed resources with safe-start support.
@@ -71,7 +81,7 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		managed.WithTypedExternalConnector[*v1alpha1.Feature](&connector{
 			kube:         mgr.GetClient(),
 			usage:        resource.NewProviderConfigUsageTracker(mgr.GetClient(), &apisv1alpha1.ProviderConfigUsage{}),
-			newServiceFn: newNoOpService}),
+			newServiceFn: newStubService}),
 		managed.WithLogger(o.Logger.WithValues("controller", name)),
 		managed.WithPollInterval(o.PollInterval),
 		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))), //nolint:staticcheck // TODO(jbw976) Crossplane needs to update to the new events API, see https://github.com/crossplane/crossplane/issues/7152
@@ -113,7 +123,7 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 type connector struct {
 	kube         client.Client
 	usage        *resource.ProviderConfigUsageTracker
-	newServiceFn func(creds []byte) (interface{}, error)
+	newServiceFn func(creds []byte) (*stubService, error)
 }
 
 // Connect typically produces an ExternalClient by:
@@ -162,56 +172,37 @@ func (c *connector) Connect(ctx context.Context, cr *v1alpha1.Feature) (managed.
 // An ExternalClient observes, then either creates, updates, or deletes an
 // external resource to ensure it reflects the managed resource's desired state.
 type external struct {
-	// A 'client' used to connect to the external resource API. In practice this
-	// would be something like an AWS SDK client.
-	service interface{}
+	// service is a placeholder for the future GrowthBook client. Every
+	// method below returns ErrNotImplemented until it is wired up.
+	service *stubService
 }
 
-func (c *external) Observe(ctx context.Context, cr *v1alpha1.Feature) (managed.ExternalObservation, error) {
-	// These fmt statements should be removed in the real implementation.
-	fmt.Printf("Observing: %+v", cr)
-
-	return managed.ExternalObservation{
-		// Return false when the external resource does not exist. This lets
-		// the managed resource reconciler know that it needs to call Create to
-		// (re)create the resource, or that it has successfully been deleted.
-		ResourceExists: true,
-
-		// Return false when the external resource exists, but it not up to date
-		// with the desired managed resource state. This lets the managed
-		// resource reconciler know that it needs to call Update.
-		ResourceUpToDate: true,
-
-		// Return any details that may be required to connect to the external
-		// resource. These will be stored as the connection secret.
-		ConnectionDetails: managed.ConnectionDetails{},
-	}, nil
+// Observe always fails: Feature reconciliation is not implemented yet. This
+// surfaces as Synced=False with ReconcileError on the managed resource,
+// rather than silently reporting a healthy resource that was never checked
+// against the GrowthBook API.
+func (c *external) Observe(_ context.Context, _ *v1alpha1.Feature) (managed.ExternalObservation, error) {
+	return managed.ExternalObservation{}, ErrNotImplemented
 }
 
-func (c *external) Create(ctx context.Context, cr *v1alpha1.Feature) (managed.ExternalCreation, error) {
-	fmt.Printf("Creating: %+v", cr)
-
-	return managed.ExternalCreation{
-		// Optionally return any details that may be required to connect to the
-		// external resource. These will be stored as the connection secret.
-		ConnectionDetails: managed.ConnectionDetails{},
-	}, nil
+// Create always fails: see Observe.
+func (c *external) Create(_ context.Context, _ *v1alpha1.Feature) (managed.ExternalCreation, error) {
+	return managed.ExternalCreation{}, ErrNotImplemented
 }
 
-func (c *external) Update(ctx context.Context, cr *v1alpha1.Feature) (managed.ExternalUpdate, error) {
-	fmt.Printf("Updating: %+v", cr)
-
-	return managed.ExternalUpdate{
-		// Optionally return any details that may be required to connect to the
-		// external resource. These will be stored as the connection secret.
-		ConnectionDetails: managed.ConnectionDetails{},
-	}, nil
+// Update always fails: see Observe.
+func (c *external) Update(_ context.Context, _ *v1alpha1.Feature) (managed.ExternalUpdate, error) {
+	return managed.ExternalUpdate{}, ErrNotImplemented
 }
 
-func (c *external) Delete(ctx context.Context, cr *v1alpha1.Feature) (managed.ExternalDelete, error) {
-	fmt.Printf("Deleting: %+v", cr)
-
-	return managed.ExternalDelete{}, nil
+// Delete always fails: see Observe. Note this means a Feature object cannot
+// be deleted through normal reconciliation while this controller is
+// unimplemented; an operator who needs to remove one must manually strip its
+// finalizer (kubectl patch ... --type=merge -p '{"metadata":{"finalizers":[]}}")
+// rather than relying on Crossplane to clean it up, so the object is never
+// silently orphaned by this controller pretending deletion succeeded.
+func (c *external) Delete(_ context.Context, _ *v1alpha1.Feature) (managed.ExternalDelete, error) {
+	return managed.ExternalDelete{}, ErrNotImplemented
 }
 
 func (c *external) Disconnect(ctx context.Context) error {
