@@ -106,11 +106,18 @@ jobs:
           kubectl wait provider.pkg.crossplane.io/provider-growthbook --for=condition=Healthy --timeout=300s
       - name: ProviderConfig pointing at the GrowthBook container
         run: |
-          # Pods in kind reach the runner host via the docker bridge gateway.
-          HOST_IP=$(docker network inspect kind -f '{{(index .IPAM.Config 0).Gateway}}')
+          set -euo pipefail
+          # Put the GrowthBook container on the kind network so pods can dial
+          # it directly by container IP. (The kind network's IPAM gateway is
+          # not reliably the IPv4 entry, so host-port routing is avoided.)
+          GB=$(docker compose -f e2e/docker-compose.yml ps -q growthbook)
+          docker network connect kind "$GB" || true
+          GB_IP=$(docker inspect -f '{{.NetworkSettings.Networks.kind.IPAddress}}' "$GB")
+          [ -n "$GB_IP" ] || { echo "growthbook container has no kind-network address"; exit 1; }
+          echo "GrowthBook reachable from pods at http://${GB_IP}:3100"
           kubectl create namespace default --dry-run=client -o yaml | kubectl apply -f -
           kubectl -n default create secret generic growthbook-credentials \
-            --from-literal=credentials="{\"apiKey\":\"${GROWTHBOOK_API_KEY}\",\"apiUrl\":\"http://${HOST_IP}:3100/api\"}"
+            --from-literal=credentials="{\"apiKey\":\"${GROWTHBOOK_API_KEY}\",\"apiUrl\":\"http://${GB_IP}:3100/api\"}"
           kubectl apply -f - <<EOF
           apiVersion: growthbook.crossplane.io/v1alpha1
           kind: ProviderConfig
