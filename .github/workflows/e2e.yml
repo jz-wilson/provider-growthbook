@@ -74,7 +74,11 @@ jobs:
           config: e2e/kind.yaml
           wait: 120s
       - name: Local registry reachable from kind
-        run: echo "CLUSTER_REGISTRY=$(e2e/kind-registry.sh "$KIND_CLUSTER")" >> "$GITHUB_ENV"
+        run: |
+          set -euo pipefail
+          REG=$(e2e/kind-registry.sh "$KIND_CLUSTER" | tail -1)
+          echo "cluster registry: ${REG}"
+          echo "CLUSTER_REGISTRY=${REG}" >> "$GITHUB_ENV"
       - name: Push package to the local registry
         run: |
           set -euo pipefail

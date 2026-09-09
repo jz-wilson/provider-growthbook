@@ -29,6 +29,8 @@ REG_NAME="${KIND_REGISTRY_NAME:-kind-registry}"
 REG_PORT="${KIND_REGISTRY_PORT:-5001}"
 
 if [ "$(docker inspect -f '{{.State.Running}}' "$REG_NAME" 2>/dev/null || true)" != "true" ]; then
+  # Pull separately so image download chatter never lands on stdout.
+  docker pull -q registry:2 >&2
   docker run -d --restart=always -p "127.0.0.1:${REG_PORT}:5000" --network bridge --name "$REG_NAME" registry:2 >/dev/null
 fi
 
@@ -52,7 +54,7 @@ EOF
 done
 
 # Advertise the registry to in-cluster tooling (kind convention).
-kubectl apply -f - <<EOF
+kubectl apply -f - >&2 <<EOF
 apiVersion: v1
 kind: ConfigMap
 metadata:
