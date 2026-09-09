@@ -43,3 +43,22 @@ func SetupGated(mgr ctrl.Manager, o controller.Options) error {
 	}
 	return nil
 }
+
+// Setup creates all GrowthBook controllers without safe-start gating and adds
+// them to the supplied manager. Used when the provider's service account
+// cannot watch CustomResourceDefinitions, for example on Crossplane
+// installations that do not grant that permission.
+func Setup(mgr ctrl.Manager, o controller.Options) error {
+	for _, setup := range []func(ctrl.Manager, controller.Options) error{
+		config.Setup,
+		project.Setup,
+		environment.Setup,
+		feature.Setup,
+		sdkconnection.Setup,
+	} {
+		if err := setup(mgr, o); err != nil {
+			return err
+		}
+	}
+	return nil
+}

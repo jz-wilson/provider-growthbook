@@ -146,7 +146,8 @@ jobs:
           kubectl -n crossplane-system get pods -o wide || true
           kubectl get environments.core.growthbook.crossplane.io -A -o yaml || true
           echo "== safe-start diagnostics"
-          kubectl get providerrevisions.pkg.crossplane.io -o jsonpath='{range .items[*]}{.metadata.name}{" capabilities="}{.spec.capabilities}{"\n"}{end}' || true
+          kubectl get providerrevisions.pkg.crossplane.io -o jsonpath='{range .items[*]}{.metadata.name}{" status.capabilities="}{.status.capabilities}{"\n"}{end}' || true
+          kubectl -n crossplane-system logs deploy/crossplane-rbac-manager --tail=60 || true
           SA=$(kubectl -n crossplane-system get sa -o name | grep provider-growthbook | head -1 | cut -d/ -f2)
           echo "provider SA: ${SA}"
           kubectl auth can-i list customresourcedefinitions.apiextensions.k8s.io --as="system:serviceaccount:crossplane-system:${SA}" || true
