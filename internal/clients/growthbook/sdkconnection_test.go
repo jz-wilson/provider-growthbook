@@ -26,6 +26,14 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+const (
+	testSDKConnName    = "web"
+	testSDKLanguage    = "javascript"
+	testSDKEnvironment = "production"
+	testSDKKey         = "key_1"
+	testSDKID          = "sdk_1"
+)
+
 func TestSDKConnectionRoundTrip(t *testing.T) {
 	var gotMethod, gotPath string
 	var gotBody SDKConnectionRequest
@@ -37,18 +45,18 @@ func TestSDKConnectionRoundTrip(t *testing.T) {
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/sdk-connections":
 			_ = json.NewEncoder(w).Encode(map[string]any{"connections": []SDKConnection{
-				{ID: "sdk_1", Name: "web", Languages: []string{"javascript"}, Environment: "production", Key: "key_1"},
+				{ID: testSDKID, Name: testSDKConnName, Languages: []string{testSDKLanguage}, Environment: testSDKEnvironment, Key: testSDKKey},
 			}})
 		case r.Method == http.MethodGet:
 			_ = json.NewEncoder(w).Encode(map[string]any{"sdkConnection": SDKConnection{
-				ID: "sdk_1", Name: "web", Languages: []string{"javascript"}, Environment: "production", Key: "key_1",
+				ID: testSDKID, Name: testSDKConnName, Languages: []string{testSDKLanguage}, Environment: testSDKEnvironment, Key: testSDKKey,
 			}})
 		case r.Method == http.MethodDelete:
-			_, _ = w.Write([]byte(`{"deletedId":"sdk_1"}`))
+			_, _ = w.Write([]byte(`{"deletedId":testSDKID}`))
 		default:
 			_ = json.NewEncoder(w).Encode(map[string]any{"sdkConnection": SDKConnection{
-				ID: "sdk_1", Name: gotBody.Name, Languages: []string{gotBody.Language}, Environment: gotBody.Environment,
-				Key: "key_1", ProxySigningKey: "proxykey_1", ProxyHost: "https://proxy.example.com",
+				ID: testSDKID, Name: gotBody.Name, Languages: []string{gotBody.Language}, Environment: gotBody.Environment,
+				Key: testSDKKey, ProxySigningKey: "proxykey_1", ProxyHost: "https://proxy.example.com",
 			}})
 		}
 	}))
@@ -61,38 +69,38 @@ func TestSDKConnectionRoundTrip(t *testing.T) {
 	ctx := context.Background()
 
 	conns, err := c.ListSDKConnections(ctx)
-	if err != nil || gotPath != "/api/v1/sdk-connections" || len(conns) != 1 || conns[0].ID != "sdk_1" {
+	if err != nil || gotPath != "/api/v1/sdk-connections" || len(conns) != 1 || conns[0].ID != testSDKID {
 		t.Errorf("ListSDKConnections() = %+v, path=%q, err %v", conns, gotPath, err)
 	}
 
-	got, err := c.GetSDKConnection(ctx, "sdk_1")
-	if err != nil || gotPath != "/api/v1/sdk-connections/sdk_1" || got.Name != "web" || got.Key != "key_1" {
+	got, err := c.GetSDKConnection(ctx, testSDKID)
+	if err != nil || gotPath != "/api/v1/sdk-connections/sdk_1" || got.Name != testSDKConnName || got.Key != testSDKKey {
 		t.Errorf("GetSDKConnection() = %+v, path=%q, err %v", got, gotPath, err)
 	}
 
-	created, err := c.CreateSDKConnection(ctx, SDKConnectionRequest{Name: "web", Language: "javascript", Environment: "production"})
+	created, err := c.CreateSDKConnection(ctx, SDKConnectionRequest{Name: testSDKConnName, Language: testSDKLanguage, Environment: testSDKEnvironment})
 	if err != nil || gotMethod != http.MethodPost || gotPath != "/api/v1/sdk-connections" {
 		t.Fatalf("CreateSDKConnection() err=%v method=%q path=%q", err, gotMethod, gotPath)
 	}
-	if created.ID != "sdk_1" || created.Key != "key_1" || created.ProxySigningKey != "proxykey_1" || created.ProxyHost != "https://proxy.example.com" {
+	if created.ID != testSDKID || created.Key != testSDKKey || created.ProxySigningKey != "proxykey_1" || created.ProxyHost != "https://proxy.example.com" {
 		t.Errorf("CreateSDKConnection() = %+v, want connection-detail fields populated", created)
 	}
 	if len(created.Languages) != 1 || created.Languages[0] != "javascript" {
 		t.Errorf("CreateSDKConnection() languages = %+v, want [javascript] (response reports 'languages' even though the request sent 'language')", created.Languages)
 	}
 
-	updated, err := c.UpdateSDKConnection(ctx, "sdk_1", SDKConnectionRequest{Name: "web-renamed"})
+	updated, err := c.UpdateSDKConnection(ctx, testSDKID, SDKConnectionRequest{Name: "web-renamed"})
 	if err != nil || gotMethod != http.MethodPut || gotPath != "/api/v1/sdk-connections/sdk_1" || updated.Name != "web-renamed" {
 		t.Errorf("UpdateSDKConnection() = %+v, method=%q, path=%q, err %v", updated, gotMethod, gotPath, err)
 	}
 
-	if err := c.DeleteSDKConnection(ctx, "sdk_1"); err != nil || gotMethod != http.MethodDelete || gotPath != "/api/v1/sdk-connections/sdk_1" {
+	if err := c.DeleteSDKConnection(ctx, testSDKID); err != nil || gotMethod != http.MethodDelete || gotPath != "/api/v1/sdk-connections/sdk_1" {
 		t.Errorf("DeleteSDKConnection() err=%v method=%q path=%q", err, gotMethod, gotPath)
 	}
 }
 
 func TestSDKConnectionRequestOmitsUnset(t *testing.T) {
-	b, err := json.Marshal(SDKConnectionRequest{Name: "web", Language: "javascript", Environment: "production"})
+	b, err := json.Marshal(SDKConnectionRequest{Name: testSDKConnName, Language: testSDKLanguage, Environment: testSDKEnvironment})
 	if err != nil {
 		t.Fatal(err)
 	}

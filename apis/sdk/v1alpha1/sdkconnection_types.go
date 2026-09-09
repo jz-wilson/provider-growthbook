@@ -25,15 +25,155 @@ import (
 	xpv2 "github.com/crossplane/crossplane/apis/v2/core/v2"
 )
 
-// SDKConnectionParameters are the configurable fields of a SDKConnection.
+// SDKConnectionParameters are the configurable fields of a GrowthBook SDK
+// Connection. Every optional field is a pointer so that only fields the user
+// actually sets participate in drift detection; a nil pointer means
+// "unmanaged", not "false"/"empty".
 type SDKConnectionParameters struct {
-	ConfigurableField string `json:"configurableField"`
+	// Name is the human-readable connection name.
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// Language is the SDK language/platform this connection targets, for
+	// example "javascript", "react", "go", or "nodejs".
+	// +kubebuilder:validation:MinLength=1
+	Language string `json:"language"`
+
+	// Environment is the id of the GrowthBook environment this connection
+	// serves.
+	// +kubebuilder:validation:MinLength=1
+	Environment string `json:"environment"`
+
+	// Projects restricts the connection to the given project ids. A nil
+	// value leaves project scoping unmanaged; an empty list clears it.
+	// +optional
+	Projects []string `json:"projects,omitempty"`
+
+	// SDKVersion is the SDK version this connection targets.
+	// +optional
+	SDKVersion *string `json:"sdkVersion,omitempty"`
+
+	// EncryptPayload enables payload encryption for this connection.
+	// +optional
+	EncryptPayload *bool `json:"encryptPayload,omitempty"`
+
+	// IncludeVisualExperiments includes visual editor experiments in the
+	// SDK payload.
+	// +optional
+	IncludeVisualExperiments *bool `json:"includeVisualExperiments,omitempty"`
+
+	// IncludeDraftExperiments includes draft (not yet running) experiments
+	// in the SDK payload.
+	// +optional
+	IncludeDraftExperiments *bool `json:"includeDraftExperiments,omitempty"`
+
+	// IncludeDraftExperimentRefs includes experiment-ref rules linked to
+	// draft experiments in the SDK payload.
+	// +optional
+	IncludeDraftExperimentRefs *bool `json:"includeDraftExperimentRefs,omitempty"`
+
+	// IncludeExperimentNames includes experiment names in the SDK payload.
+	// +optional
+	IncludeExperimentNames *bool `json:"includeExperimentNames,omitempty"`
+
+	// IncludeRedirectExperiments includes URL redirect experiments in the
+	// SDK payload.
+	// +optional
+	IncludeRedirectExperiments *bool `json:"includeRedirectExperiments,omitempty"`
+
+	// IncludeRuleIds includes rule ids in the SDK payload.
+	// +optional
+	IncludeRuleIds *bool `json:"includeRuleIds,omitempty"`
+
+	// IncludeProjectIdInMetadata includes the project id in feature
+	// metadata.
+	// +optional
+	IncludeProjectIdInMetadata *bool `json:"includeProjectIdInMetadata,omitempty"`
+
+	// IncludeCustomFieldsInMetadata includes custom fields in feature
+	// metadata.
+	// +optional
+	IncludeCustomFieldsInMetadata *bool `json:"includeCustomFieldsInMetadata,omitempty"`
+
+	// AllowedCustomFieldsInMetadata limits which custom fields are included
+	// when IncludeCustomFieldsInMetadata is set.
+	// +optional
+	AllowedCustomFieldsInMetadata []string `json:"allowedCustomFieldsInMetadata,omitempty"`
+
+	// IncludeTagsInMetadata includes tags in feature metadata.
+	// +optional
+	IncludeTagsInMetadata *bool `json:"includeTagsInMetadata,omitempty"`
+
+	// IncludeExperimentScheduleInMetadata includes experiment scheduling
+	// info in feature metadata.
+	// +optional
+	IncludeExperimentScheduleInMetadata *bool `json:"includeExperimentScheduleInMetadata,omitempty"`
+
+	// ProxyEnabled enables the GrowthBook proxy for this connection.
+	// +optional
+	ProxyEnabled *bool `json:"proxyEnabled,omitempty"`
+
+	// ProxyHost is the proxy host to use when ProxyEnabled is true.
+	// +optional
+	ProxyHost *string `json:"proxyHost,omitempty"`
+
+	// HashSecureAttributes hashes secure attributes before they leave the
+	// server.
+	// +optional
+	HashSecureAttributes *bool `json:"hashSecureAttributes,omitempty"`
+
+	// RemoteEvalEnabled enables remote evaluation for this connection.
+	// +optional
+	RemoteEvalEnabled *bool `json:"remoteEvalEnabled,omitempty"`
+
+	// SavedGroupReferencesEnabled enables saved group references in the SDK
+	// payload.
+	// +optional
+	SavedGroupReferencesEnabled *bool `json:"savedGroupReferencesEnabled,omitempty"`
+
+	// IncludeReferencedPrerequisites carries prerequisite feature flags into
+	// the payload even when they target other projects.
+	// +optional
+	IncludeReferencedPrerequisites *bool `json:"includeReferencedPrerequisites,omitempty"`
 }
 
-// SDKConnectionObservation are the observable fields of a SDKConnection.
+// SDKConnectionObservation are the observable, non-secret fields of a
+// GrowthBook SDK Connection. The client key and proxy signing key are
+// secrets: they are only ever surfaced through connection details, never
+// written to status.
 type SDKConnectionObservation struct {
-	ConfigurableField string `json:"configurableField"`
-	ObservableField   string `json:"observableField,omitempty"`
+	// ID is the GrowthBook-assigned connection id ("sdk_...").
+	ID string `json:"id,omitempty"`
+
+	// Organization is the GrowthBook organization id that owns the
+	// connection.
+	Organization string `json:"organization,omitempty"`
+
+	// Languages is the set of SDK languages GrowthBook reports for this
+	// connection.
+	Languages []string `json:"languages,omitempty"`
+
+	// Project is the first project GrowthBook associates with this
+	// connection, kept for backwards compatibility with older API
+	// responses. Prefer Projects on the spec.
+	Project string `json:"project,omitempty"`
+
+	// DateCreated is the RFC 3339 creation timestamp reported by GrowthBook.
+	DateCreated string `json:"dateCreated,omitempty"`
+
+	// DateUpdated is the RFC 3339 last-update timestamp reported by
+	// GrowthBook.
+	DateUpdated string `json:"dateUpdated,omitempty"`
+
+	// Connected reports whether GrowthBook has seen this connection make an
+	// SDK request at least once.
+	// +optional
+	Connected *bool `json:"connected,omitempty"`
+
+	// SSEEnabled reports whether server-sent events are enabled for this
+	// connection.
+	// +optional
+	SSEEnabled *bool `json:"sseEnabled,omitempty"`
 }
 
 // A SDKConnectionSpec defines the desired state of a SDKConnection.
@@ -50,7 +190,12 @@ type SDKConnectionStatus struct {
 
 // +kubebuilder:object:root=true
 
-// A SDKConnection is an example API type.
+// A SDKConnection is a GrowthBook SDK Connection: a client key an
+// application uses to fetch feature flag and experiment definitions for one
+// environment (and optionally a subset of projects). Applying this resource
+// with spec.writeConnectionSecretToRef set writes the resulting client "key"
+// (and, when the proxy is enabled, "proxySigningKey" and "proxyHost") into
+// the referenced Secret.
 // +kubebuilder:printcolumn:name="READY",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
 // +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane\\.io/external-name"

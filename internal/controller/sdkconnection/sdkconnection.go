@@ -14,20 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package sdkconnection reconciles sdk.growthbook.crossplane.io SDKConnection
+// resources against the GrowthBook /v1/sdk-connections API.
 package sdkconnection
 
 import (
 	"context"
 
-	"github.com/crossplane/crossplane-runtime/v2/pkg/feature"
-
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	xpv2 "github.com/crossplane/crossplane/apis/v2/core/v2"
+
 	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/feature"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/ratelimiter"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
@@ -35,6 +39,7 @@ import (
 
 	v1alpha1 "github.com/jz-wilson/provider-growthbook/apis/sdk/v1alpha1"
 	apisv1alpha1 "github.com/jz-wilson/provider-growthbook/apis/v1alpha1"
+	"github.com/jz-wilson/provider-growthbook/internal/clients/growthbook"
 )
 
 const (
@@ -42,27 +47,32 @@ const (
 	errGetPC        = "cannot get ProviderConfig"
 	errGetCPC       = "cannot get ClusterProviderConfig"
 	errGetCreds     = "cannot get credentials"
+	errNewClient    = "cannot create GrowthBook client"
 
-	errNewClient = "cannot create new Service"
+	errGetSDKConnection    = "cannot get sdk connection"
+	errCreateSDKConnection = "cannot create sdk connection"
+	errUpdateSDKConnection = "cannot update sdk connection"
+	errDeleteSDKConnection = "cannot delete sdk connection"
+
+	// connKey, connProxySigningKey, and connProxyHost are the connection
+	// detail keys written to spec.writeConnectionSecretToRef.
+	connKey             = "key"
+	connProxySigningKey = "proxySigningKey"
+	connProxyHost       = "proxyHost"
 )
 
-// ErrNotImplemented is returned by every External operation on SDKConnection. The
-// GrowthBook client for this resource has not been implemented yet, so
-// applying an SDKConnection today would otherwise appear to succeed while never
-// actually reconciling anything against the GrowthBook API.
-var ErrNotImplemented = errors.New("SDKConnection is not implemented yet in provider-growthbook")
-
-// A stubService is a placeholder for the GrowthBook client this controller
-// will eventually use. It intentionally does nothing yet.
-type stubService struct {
-	// creds are stored, not ignored, so that once a real client lands here
-	// wiring credentials through is a small diff rather than a rewrite.
-	creds []byte
+// SDKConnectionClient is the subset of the GrowthBook API the controller
+// needs. It exists so tests can substitute a fake.
+type SDKConnectionClient interface {
+	GetSDKConnection(ctx context.Context, id string) (*growthbook.SDKConnection, error)
+	CreateSDKConnection(ctx context.Context, req growthbook.SDKConnectionRequest) (*growthbook.SDKConnection, error)
+	UpdateSDKConnection(ctx context.Context, id string, req growthbook.SDKConnectionRequest) (*growthbook.SDKConnection, error)
+	DeleteSDKConnection(ctx context.Context, id string) error
 }
 
-var (
-	newStubService = func(creds []byte) (*stubService, error) { return &stubService{creds: creds}, nil }
-)
+var newClient = func(creds []byte) (SDKConnectionClient, error) {
+	return growthbook.NewFromSecret(creds)
+}
 
 // SetupGated adds a controller that reconciles SDKConnection managed resources with safe-start support.
 func SetupGated(mgr ctrl.Manager, o controller.Options) error {
@@ -74,14 +84,19 @@ func SetupGated(mgr ctrl.Manager, o controller.Options) error {
 	return nil
 }
 
+// Setup adds a controller that reconciles SDKConnection managed resources.
 func Setup(mgr ctrl.Manager, o controller.Options) error {
 	name := managed.ControllerName(v1alpha1.SDKConnectionGroupKind)
 
 	opts := []managed.ReconcilerOption{
 		managed.WithTypedExternalConnector[*v1alpha1.SDKConnection](&connector{
-			kube:         mgr.GetClient(),
-			usage:        resource.NewProviderConfigUsageTracker(mgr.GetClient(), &apisv1alpha1.ProviderConfigUsage{}),
-			newServiceFn: newStubService}),
+			kube:        mgr.GetClient(),
+			usage:       resource.NewProviderConfigUsageTracker(mgr.GetClient(), &apisv1alpha1.ProviderConfigUsage{}),
+			newClientFn: newClient}),
+		// GrowthBook assigns connection ids, so the external name must stay
+		// empty until Create sets it. This drops the default initializer
+		// that copies metadata.name into the external-name annotation.
+		managed.WithInitializers(),
 		managed.WithLogger(o.Logger.WithValues("controller", name)),
 		managed.WithPollInterval(o.PollInterval),
 		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))), //nolint:staticcheck // TODO(jbw976) Crossplane needs to update to the new events API, see https://github.com/crossplane/crossplane/issues/7152
@@ -118,19 +133,15 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		Complete(ratelimiter.NewReconciler(name, r, o.GlobalRateLimiter))
 }
 
-// A connector is expected to produce an ExternalClient when its Connect method
-// is called.
+// A connector produces an ExternalClient from the ProviderConfig credentials.
 type connector struct {
-	kube         client.Client
-	usage        *resource.ProviderConfigUsageTracker
-	newServiceFn func(creds []byte) (*stubService, error)
+	kube        client.Client
+	usage       *resource.ProviderConfigUsageTracker
+	newClientFn func(creds []byte) (SDKConnectionClient, error)
 }
 
-// Connect typically produces an ExternalClient by:
-// 1. Tracking that the managed resource is using a ProviderConfig.
-// 2. Getting the managed resource's ProviderConfig.
-// 3. Getting the credentials specified by the ProviderConfig.
-// 4. Using the credentials to form a client.
+// Connect tracks ProviderConfig usage, resolves the credentials secret, and
+// builds a GrowthBook client from it.
 func (c *connector) Connect(ctx context.Context, cr *v1alpha1.SDKConnection) (managed.TypedExternalClient[*v1alpha1.SDKConnection], error) {
 	if err := c.usage.Track(ctx, cr); err != nil {
 		return nil, errors.Wrap(err, errTrackPCUsage)
@@ -161,50 +172,103 @@ func (c *connector) Connect(ctx context.Context, cr *v1alpha1.SDKConnection) (ma
 		return nil, errors.Wrap(err, errGetCreds)
 	}
 
-	svc, err := c.newServiceFn(data)
+	gb, err := c.newClientFn(data)
 	if err != nil {
 		return nil, errors.Wrap(err, errNewClient)
 	}
 
-	return &external{service: svc}, nil
+	return &external{client: gb}, nil
 }
 
-// An ExternalClient observes, then either creates, updates, or deletes an
-// external resource to ensure it reflects the managed resource's desired state.
+// An external client reconciles one SDKConnection against the GrowthBook API.
 type external struct {
-	// service is a placeholder for the future GrowthBook client. Every
-	// method below returns ErrNotImplemented until it is wired up.
-	service *stubService
+	client SDKConnectionClient
 }
 
-// Observe always fails: SDKConnection reconciliation is not implemented yet. This
-// surfaces as Synced=False with ReconcileError on the managed resource,
-// rather than silently reporting a healthy resource that was never checked
-// against the GrowthBook API.
-func (c *external) Observe(_ context.Context, _ *v1alpha1.SDKConnection) (managed.ExternalObservation, error) {
-	return managed.ExternalObservation{}, ErrNotImplemented
+// Observe looks the connection up by its external name (the GrowthBook id).
+func (e *external) Observe(ctx context.Context, cr *v1alpha1.SDKConnection) (managed.ExternalObservation, error) {
+	id := meta.GetExternalName(cr)
+	if id == "" {
+		return managed.ExternalObservation{ResourceExists: false}, nil
+	}
+
+	sc, err := e.client.GetSDKConnection(ctx, id)
+	if err != nil {
+		if growthbook.IsNotFound(err) {
+			return managed.ExternalObservation{ResourceExists: false}, nil
+		}
+		return managed.ExternalObservation{}, errors.Wrap(err, errGetSDKConnection)
+	}
+
+	cr.Status.AtProvider = observation(sc)
+	cr.SetConditions(xpv2.Available())
+
+	return managed.ExternalObservation{
+		ResourceExists:    true,
+		ResourceUpToDate:  isUpToDate(cr.Spec.ForProvider, sc),
+		ConnectionDetails: connectionDetails(sc),
+	}, nil
 }
 
-// Create always fails: see Observe.
-func (c *external) Create(_ context.Context, _ *v1alpha1.SDKConnection) (managed.ExternalCreation, error) {
-	return managed.ExternalCreation{}, ErrNotImplemented
+// Create posts the connection and records the returned id as the external
+// name.
+func (e *external) Create(ctx context.Context, cr *v1alpha1.SDKConnection) (managed.ExternalCreation, error) {
+	sc, err := e.client.CreateSDKConnection(ctx, request(cr.Spec.ForProvider))
+	if err != nil {
+		return managed.ExternalCreation{}, errors.Wrap(err, errCreateSDKConnection)
+	}
+
+	meta.SetExternalName(cr, sc.ID)
+	cr.Status.AtProvider = observation(sc)
+
+	return managed.ExternalCreation{ConnectionDetails: connectionDetails(sc)}, nil
 }
 
-// Update always fails: see Observe.
-func (c *external) Update(_ context.Context, _ *v1alpha1.SDKConnection) (managed.ExternalUpdate, error) {
-	return managed.ExternalUpdate{}, ErrNotImplemented
+// Update pushes the full desired spec with PUT.
+func (e *external) Update(ctx context.Context, cr *v1alpha1.SDKConnection) (managed.ExternalUpdate, error) {
+	sc, err := e.client.UpdateSDKConnection(ctx, meta.GetExternalName(cr), request(cr.Spec.ForProvider))
+	if err != nil {
+		return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateSDKConnection)
+	}
+
+	cr.Status.AtProvider = observation(sc)
+
+	return managed.ExternalUpdate{ConnectionDetails: connectionDetails(sc)}, nil
 }
 
-// Delete always fails: see Observe. Note this means an SDKConnection object cannot
-// be deleted through normal reconciliation while this controller is
-// unimplemented; an operator who needs to remove one must manually strip its
-// finalizer (kubectl patch ... --type=merge -p '{"metadata":{"finalizers":[]}}")
-// rather than relying on Crossplane to clean it up, so the object is never
-// silently orphaned by this controller pretending deletion succeeded.
-func (c *external) Delete(_ context.Context, _ *v1alpha1.SDKConnection) (managed.ExternalDelete, error) {
-	return managed.ExternalDelete{}, ErrNotImplemented
+// Delete removes the connection. A connection that is already gone is a
+// success.
+func (e *external) Delete(ctx context.Context, cr *v1alpha1.SDKConnection) (managed.ExternalDelete, error) {
+	id := meta.GetExternalName(cr)
+	if id == "" {
+		return managed.ExternalDelete{}, nil
+	}
+
+	if err := e.client.DeleteSDKConnection(ctx, id); err != nil && !growthbook.IsNotFound(err) {
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteSDKConnection)
+	}
+
+	return managed.ExternalDelete{}, nil
 }
 
-func (c *external) Disconnect(ctx context.Context) error {
+// Disconnect is a no-op: the HTTP client holds no long-lived connection.
+func (e *external) Disconnect(_ context.Context) error {
 	return nil
+}
+
+// connectionDetails surfaces the SDK client key (and, when present, the
+// proxy signing key and host) so callers can point
+// spec.writeConnectionSecretToRef at this resource.
+func connectionDetails(sc *growthbook.SDKConnection) managed.ConnectionDetails {
+	cd := managed.ConnectionDetails{}
+	if sc.Key != "" {
+		cd[connKey] = []byte(sc.Key)
+	}
+	if sc.ProxySigningKey != "" {
+		cd[connProxySigningKey] = []byte(sc.ProxySigningKey)
+	}
+	if sc.ProxyHost != "" {
+		cd[connProxyHost] = []byte(sc.ProxyHost)
+	}
+	return cd
 }

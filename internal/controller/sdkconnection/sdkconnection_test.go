@@ -63,8 +63,6 @@ var (
 
 const connName = "web"
 
-func ptr[T any](v T) *T { return &v }
-
 func sdkConnection(name string, mods ...func(*v1alpha1.SDKConnection)) *v1alpha1.SDKConnection {
 	cr := &v1alpha1.SDKConnection{}
 	cr.SetName(name)
