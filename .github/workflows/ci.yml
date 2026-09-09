@@ -260,6 +260,8 @@ jobs:
 
       # Publishes the xpkg to ghcr.io/jz-wilson/provider-growthbook:<VERSION>.
       # VERSION comes from git describe: a tag push yields the tag itself.
+      # RELEASE_BRANCH_FILTER: the build makelib only publishes from main and
+      # release-* branches by default; include v* so tag pushes publish too.
       - name: Publish Artifacts
         if: github.event_name != 'pull_request'
-        run: make publish BRANCH_NAME=${GITHUB_REF##*/}
+        run: make publish BRANCH_NAME=${GITHUB_REF##*/} RELEASE_BRANCH_FILTER="main master release-% v%"
