@@ -1,7 +1,10 @@
 # Adopts the built-in "production" environment, which exists on every
 # GrowthBook instance including the unlicensed free plan. The controller
-# observes it, updates the description, and reports Ready. deletionPolicy
-# Orphan keeps uptest's teardown from deleting the real environment.
+# observes it, updates the description, and reports Ready.
+#
+# Crossplane v2 namespaced resources have no deletionPolicy; the management
+# policies below leave out Create and Delete so uptest's teardown removes
+# only the Kubernetes object and never the real environment.
 apiVersion: core.growthbook.crossplane.io/v1alpha1
 kind: Environment
 metadata:
@@ -11,7 +14,7 @@ metadata:
     crossplane.io/external-name: production
     uptest.upbound.io/timeout: "180"
 spec:
-  deletionPolicy: Orphan
+  managementPolicies: ["Observe", "Update", "LateInitialize"]
   forProvider:
     description: Managed by provider-growthbook e2e
   providerConfigRef:

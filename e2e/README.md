@@ -37,6 +37,7 @@ API enforces it with HTTP 402:
 
 The integration tests detect the 402 and fall back to update-and-revert on
 the resources that exist. The uptest manifests only adopt `production`
-(`deletionPolicy: Orphan`) for the same reason. To exercise create and delete
+with `managementPolicies: ["Observe", "Update", "LateInitialize"]` for the
+same reason (Crossplane v2 namespaced resources have no `deletionPolicy`). To exercise create and delete
 end to end, set `LICENSE_KEY` in `docker-compose.yml` to a trial or paid key
 and add create-style manifests under `e2e/manifests/`.

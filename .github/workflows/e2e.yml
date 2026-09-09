@@ -144,5 +144,8 @@ jobs:
           kubectl describe provider.pkg.crossplane.io/provider-growthbook | tail -30 || true
           kubectl get managed -A -o wide || true
           kubectl -n crossplane-system get pods -o wide || true
+          kubectl get environments.core.growthbook.crossplane.io -A -o yaml || true
           kubectl -n crossplane-system logs -l pkg.crossplane.io/provider=provider-growthbook --tail=200 || true
+          echo "== previous container logs (if restarted)"
+          kubectl -n crossplane-system logs -l pkg.crossplane.io/provider=provider-growthbook --previous --tail=100 || true
           docker compose -f e2e/docker-compose.yml logs --no-color growthbook | tail -100
