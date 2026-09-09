@@ -1,0 +1,9 @@
+# kind cluster for e2e. The containerd patch makes nodes read per-registry
+# host files from /etc/containerd/certs.d, which e2e/kind-registry.sh fills
+# in so that localhost:5001 resolves to the kind-registry container.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      config_path = "/etc/containerd/certs.d"

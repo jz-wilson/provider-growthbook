@@ -24,7 +24,10 @@ jobs:
       - name: Start GrowthBook
         run: docker compose -f e2e/docker-compose.yml up -d --wait
       - name: Mint API key
-        run: echo "GROWTHBOOK_API_KEY=$(e2e/bootstrap.sh)" >> "$GITHUB_ENV"
+        run: |
+          KEY=$(e2e/bootstrap.sh)
+          echo "::add-mask::${KEY}"
+          echo "GROWTHBOOK_API_KEY=${KEY}" >> "$GITHUB_ENV"
       - name: Integration tests
         run: go test -tags integration -count=1 -v ./internal/clients/...
       - name: GrowthBook logs on failure
@@ -51,33 +54,47 @@ jobs:
       - name: Start GrowthBook
         run: docker compose -f e2e/docker-compose.yml up -d --wait
       - name: Mint API key
-        run: echo "GROWTHBOOK_API_KEY=$(e2e/bootstrap.sh)" >> "$GITHUB_ENV"
-      - name: Build provider image and package
-        run: make build.all
+        run: |
+          KEY=$(e2e/bootstrap.sh)
+          echo "::add-mask::${KEY}"
+          echo "GROWTHBOOK_API_KEY=${KEY}" >> "$GITHUB_ENV"
+      - name: Build provider package (amd64 only)
+        run: make build.all PLATFORMS=linux_amd64
+      - name: Install Crossplane CLI
+        run: |
+          curl -fsSL "https://releases.crossplane.io/stable/${CROSSPLANE_VERSION}/bin/linux_amd64/crossplane" -o /usr/local/bin/crossplane
+          chmod +x /usr/local/bin/crossplane
+          crossplane version --client
       - name: Create kind cluster
         uses: helm/kind-action@v1
         with:
           cluster_name: ${{ env.KIND_CLUSTER }}
+          config: e2e/kind.yaml
           wait: 120s
+      - name: Local registry reachable from kind
+        run: e2e/kind-registry.sh "$KIND_CLUSTER"
+      - name: Push package to the local registry
+        run: |
+          set -euo pipefail
+          XPKG=$(ls _output/xpkg/linux_amd64/*.xpkg | head -1)
+          crossplane xpkg push -f "$XPKG" "localhost:5001/provider-growthbook:e2e"
       - name: Install Crossplane
         run: |
           helm repo add crossplane-stable https://charts.crossplane.io/stable
           helm install crossplane crossplane-stable/crossplane \
             --namespace crossplane-system --create-namespace \
             --version "${CROSSPLANE_VERSION#v}" --wait
-      - name: Load provider into kind and install
+      - name: Install provider
         run: |
           set -euo pipefail
-          IMG=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep provider-growthbook | grep -v xpkg | head -1)
-          kind load docker-image "$IMG" --name "$KIND_CLUSTER"
           kubectl apply -f - <<EOF
           apiVersion: pkg.crossplane.io/v1
           kind: Provider
           metadata:
             name: provider-growthbook
           spec:
-            package: $IMG
-            packagePullPolicy: Never
+            package: localhost:5001/provider-growthbook:e2e
+            packagePullPolicy: Always
           EOF
           kubectl wait provider.pkg.crossplane.io/provider-growthbook --for=condition=Healthy --timeout=300s
       - name: ProviderConfig pointing at the GrowthBook container
@@ -114,6 +131,9 @@ jobs:
       - name: Dump cluster state on failure
         if: failure()
         run: |
+          kubectl get providers.pkg.crossplane.io,providerrevisions.pkg.crossplane.io -o wide || true
+          kubectl describe provider.pkg.crossplane.io/provider-growthbook | tail -30 || true
           kubectl get managed -A -o wide || true
+          kubectl -n crossplane-system get pods -o wide || true
           kubectl -n crossplane-system logs -l pkg.crossplane.io/provider=provider-growthbook --tail=200 || true
           docker compose -f e2e/docker-compose.yml logs --no-color growthbook | tail -100
