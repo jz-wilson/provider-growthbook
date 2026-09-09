@@ -23,6 +23,25 @@ spec:
         enabled: false
       staging:
         enabled: true
+    # Rules is opt-in: leave it unset (as above) to leave any rules
+    # configured out of band (e.g. through the GrowthBook UI) untouched.
+    # Setting it, even to an empty list, is authoritative and replaces
+    # the feature's entire rules array.
+    # rules:
+    #   # A force rule serves a fixed value to matching users.
+    #   - type: force
+    #     description: Force on for US users
+    #     condition: '{"country":"US"}'
+    #     allEnvironments: true
+    #     value: "true"
+    #   # A rollout rule serves a value to a percentage of matching users,
+    #   # hashed on the given attribute for consistent assignment.
+    #   - type: rollout
+    #     description: 25% rollout by user id
+    #     allEnvironments: true
+    #     value: "true"
+    #     coverage: "0.25"
+    #     hashAttribute: id
   providerConfigRef:
     kind: ProviderConfig
     name: example

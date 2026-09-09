@@ -16,6 +16,11 @@ spec:
     environments:
       production:
         enabled: true
+    rules:
+      - type: force
+        condition: '{"country":"US"}'
+        allEnvironments: true
+        value: "true"
   providerConfigRef:
     kind: ProviderConfig
     name: example
