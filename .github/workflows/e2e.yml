@@ -79,7 +79,7 @@ jobs:
         run: |
           set -euo pipefail
           XPKG=$(ls _output/xpkg/linux_amd64/*.xpkg | head -1)
-          crossplane xpkg push -f "$XPKG" "localhost:5001/provider-growthbook:e2e"
+          crossplane xpkg push -f "$XPKG" "127.0.0.1:5001/provider-growthbook:e2e"
       - name: Install Crossplane
         run: |
           helm repo add crossplane-stable https://charts.crossplane.io/stable
@@ -95,7 +95,7 @@ jobs:
           metadata:
             name: provider-growthbook
           spec:
-            package: localhost:5001/provider-growthbook:e2e
+            package: 127.0.0.1:5001/provider-growthbook:e2e
             packagePullPolicy: Always
           EOF
           kubectl wait provider.pkg.crossplane.io/provider-growthbook --for=condition=Healthy --timeout=300s
