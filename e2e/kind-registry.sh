@@ -7,37 +7,49 @@
 # node's containerd host config, satisfies both. Follows the pattern from
 # https://kind.sigs.k8s.io/docs/user/local-registry/.
 #
-# The reference host is 127.0.0.1 rather than localhost on purpose:
-# Crossplane's spec.package CEL rule demands a dot in the registry host
-# (^[^./]+(\.[^./]+)+/...), which "localhost:5001" fails and an IP passes.
-# Nodes never dial 127.0.0.1:5001 themselves; hosts.toml redirects that
-# name to the registry container.
+# Two names for one registry:
+#   127.0.0.1:5001         host side, for pushing with the Crossplane CLI
+#   <kind-net-ip>:5000     cluster side, for Crossplane's spec.package
+# The cluster-side name has to be an address pods can dial directly, because
+# Crossplane's package manager fetches the package over HTTP itself rather
+# than through containerd (so a containerd hosts.toml redirect alone is not
+# enough), and it has to contain a dot to pass the spec.package CEL rule
+# (^[^./]+(\.[^./]+)+/...), which rules out "localhost". The registry
+# container's IP on the kind docker network satisfies both. The provider
+# pod image is then pulled by containerd from the same name, so each node
+# also gets a hosts.toml for it.
+#
+# Prints the cluster-side registry address (host:port) on stdout.
 #
 # Usage: e2e/kind-registry.sh <kind-cluster-name>
 set -euo pipefail
 
 CLUSTER="${1:?kind cluster name}"
 REG_NAME="${KIND_REGISTRY_NAME:-kind-registry}"
-REG_HOST="${KIND_REGISTRY_HOST:-127.0.0.1}"
 REG_PORT="${KIND_REGISTRY_PORT:-5001}"
 
 if [ "$(docker inspect -f '{{.State.Running}}' "$REG_NAME" 2>/dev/null || true)" != "true" ]; then
   docker run -d --restart=always -p "127.0.0.1:${REG_PORT}:5000" --network bridge --name "$REG_NAME" registry:2 >/dev/null
 fi
 
-# Each node gets a hosts.toml that maps localhost:<port> to the registry
-# container's in-network address.
-REGISTRY_DIR="/etc/containerd/certs.d/${REG_HOST}:${REG_PORT}"
-for node in $(kind get nodes --name "$CLUSTER"); do
-  docker exec "$node" mkdir -p "$REGISTRY_DIR"
-  cat <<EOF | docker exec -i "$node" cp /dev/stdin "${REGISTRY_DIR}/hosts.toml"
-[host."http://${REG_NAME}:5000"]
-EOF
-done
-
 if [ "$(docker inspect -f '{{json .NetworkSettings.Networks.kind}}' "$REG_NAME")" = 'null' ]; then
   docker network connect kind "$REG_NAME"
 fi
+REG_IP=$(docker inspect -f '{{.NetworkSettings.Networks.kind.IPAddress}}' "$REG_NAME")
+[ -n "$REG_IP" ] || { echo "registry has no address on the kind network" >&2; exit 1; }
+CLUSTER_REG="${REG_IP}:5000"
+
+# Each node gets a hosts.toml telling containerd to use plain HTTP for the
+# cluster-side name.
+REGISTRY_DIR="/etc/containerd/certs.d/${CLUSTER_REG}"
+for node in $(kind get nodes --name "$CLUSTER"); do
+  docker exec "$node" mkdir -p "$REGISTRY_DIR"
+  cat <<EOF | docker exec -i "$node" cp /dev/stdin "${REGISTRY_DIR}/hosts.toml"
+server = "http://${CLUSTER_REG}"
+
+[host."http://${CLUSTER_REG}"]
+EOF
+done
 
 # Advertise the registry to in-cluster tooling (kind convention).
 kubectl apply -f - <<EOF
@@ -48,8 +60,9 @@ metadata:
   namespace: kube-public
 data:
   localRegistryHosting.v1: |
-    host: "${REG_HOST}:${REG_PORT}"
+    host: "127.0.0.1:${REG_PORT}"
     help: "https://kind.sigs.k8s.io/docs/user/local-registry/"
 EOF
 
-echo "registry ready at ${REG_HOST}:${REG_PORT}" >&2
+echo "registry ready: push to 127.0.0.1:${REG_PORT}, cluster pulls from ${CLUSTER_REG}" >&2
+printf '%s\n' "$CLUSTER_REG"

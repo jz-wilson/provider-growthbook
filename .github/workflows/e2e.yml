@@ -74,12 +74,13 @@ jobs:
           config: e2e/kind.yaml
           wait: 120s
       - name: Local registry reachable from kind
-        run: e2e/kind-registry.sh "$KIND_CLUSTER"
+        run: echo "CLUSTER_REGISTRY=$(e2e/kind-registry.sh "$KIND_CLUSTER")" >> "$GITHUB_ENV"
       - name: Push package to the local registry
         run: |
           set -euo pipefail
           XPKG=$(ls _output/xpkg/linux_amd64/*.xpkg | head -1)
           crossplane xpkg push -f "$XPKG" "127.0.0.1:5001/provider-growthbook:e2e"
+          curl -fsS "http://${CLUSTER_REGISTRY}/v2/provider-growthbook/tags/list"
       - name: Install Crossplane
         run: |
           helm repo add crossplane-stable https://charts.crossplane.io/stable
@@ -95,7 +96,7 @@ jobs:
           metadata:
             name: provider-growthbook
           spec:
-            package: 127.0.0.1:5001/provider-growthbook:e2e
+            package: ${CLUSTER_REGISTRY}/provider-growthbook:e2e
             packagePullPolicy: Always
           EOF
           kubectl wait provider.pkg.crossplane.io/provider-growthbook --for=condition=Healthy --timeout=300s
