@@ -62,7 +62,9 @@ jobs:
         run: make build.all PLATFORMS=linux_amd64
       - name: Install Crossplane CLI
         run: |
-          curl -fsSL "https://releases.crossplane.io/stable/${CROSSPLANE_VERSION}/bin/linux_amd64/crossplane" -o /usr/local/bin/crossplane
+          # cli.crossplane.io hosts the CLI; releases.crossplane.io serves the
+          # core controller binary under the same path, which is not it.
+          curl -fsSL "https://cli.crossplane.io/stable/${CROSSPLANE_VERSION}/bin/linux_amd64/crossplane" -o /usr/local/bin/crossplane
           chmod +x /usr/local/bin/crossplane
           crossplane version --client
       - name: Create kind cluster
