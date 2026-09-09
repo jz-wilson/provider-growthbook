@@ -34,9 +34,9 @@ type FeatureRevision struct {
 }
 
 // Feature is the GrowthBook feature object as returned by the v2 API.
-// This client only models the fields the provider manages (value,
-// per-environment enabled toggles, and metadata); rules and other v2
-// fields are intentionally omitted and pass through unread.
+// This client models the fields the provider manages (value,
+// per-environment enabled toggles, rules, and metadata); other v2 fields
+// are intentionally omitted and pass through unread.
 type Feature struct {
 	ID           string                        `json:"id"`
 	Archived     bool                          `json:"archived,omitempty"`
@@ -47,6 +47,7 @@ type Feature struct {
 	DefaultValue string                        `json:"defaultValue"`
 	Tags         []string                      `json:"tags,omitempty"`
 	Environments map[string]FeatureEnvironment `json:"environments,omitempty"`
+	Rules        []FeatureRule                 `json:"rules,omitempty"`
 	DateCreated  string                        `json:"dateCreated,omitempty"`
 	DateUpdated  string                        `json:"dateUpdated,omitempty"`
 	Revision     *FeatureRevision              `json:"revision,omitempty"`
@@ -62,6 +63,15 @@ type FeatureEnvironmentRequest struct {
 // POST /v2/features/{id}. ID and ValueType are create-only: callers must
 // leave them empty on update, which the JSON encoding then omits, since
 // the update endpoint rejects a valueType field entirely.
+//
+// Rules is a pointer to a slice, not a plain slice: encoding/json's
+// omitempty treats a nil slice and an empty non-nil slice identically
+// (both omitted), which cannot express "clear the rules array" as
+// distinct from "leave rules unchanged". A nil Rules pointer omits the
+// field entirely, which GrowthBook's patch-merge semantics treat as
+// "leave the feature's rules unchanged"; a non-nil pointer, even to an
+// empty slice, replaces the feature's entire rules array and encodes as
+// "rules":[] when empty.
 type FeatureRequest struct {
 	ID           string                               `json:"id,omitempty"`
 	ValueType    string                               `json:"valueType,omitempty"`
@@ -72,6 +82,7 @@ type FeatureRequest struct {
 	Archived     *bool                                `json:"archived,omitempty"`
 	Owner        *string                              `json:"owner,omitempty"`
 	Environments map[string]FeatureEnvironmentRequest `json:"environments,omitempty"`
+	Rules        *[]FeatureRule                       `json:"rules,omitempty"`
 }
 
 type featureEnvelope struct {

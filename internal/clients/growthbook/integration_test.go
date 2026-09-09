@@ -219,6 +219,8 @@ func TestIntegrationFeatureLifecycle(t *testing.T) {
 		t.Fatalf("UpdateFeature() = %+v, err %v", upd, err)
 	}
 
+	testFeatureRules(ctx, t, c, id)
+
 	// Some organizations disable "REST API always bypasses approval
 	// requirements", in which case GrowthBook refuses to delete a live
 	// feature via the REST API with a 403 asking the caller to archive it
@@ -229,6 +231,80 @@ func TestIntegrationFeatureLifecycle(t *testing.T) {
 	}
 	if _, err := c.GetFeature(ctx, id); !IsNotFound(err) {
 		t.Fatalf("GetFeature() after delete err = %v, want not found", err)
+	}
+}
+
+// testFeatureRules exercises setting, reading back, and replacing a
+// feature's rules array: a force rule scoped to all environments and a
+// rollout rule scoped to a percentage of users, then a reordered,
+// modified replacement.
+func testFeatureRules(ctx context.Context, t *testing.T, c *Client, id string) {
+	t.Helper()
+	coverage := 0.5
+	rules := []FeatureRule{
+		{
+			Type:            "force",
+			Condition:       `{"country":"US"}`,
+			AllEnvironments: true,
+			Value:           "true",
+		},
+		{
+			Type:            "rollout",
+			AllEnvironments: true,
+			Value:           "true",
+			Coverage:        &coverage,
+			HashAttribute:   "id",
+		},
+	}
+	upd, err := c.UpdateFeature(ctx, id, FeatureRequest{Rules: &rules})
+	if err != nil {
+		t.Fatalf("UpdateFeature(rules) error = %v", err)
+	}
+	if len(upd.Rules) != 2 {
+		t.Fatalf("UpdateFeature(rules) = %+v, want 2 rules", upd.Rules)
+	}
+
+	got, err := c.GetFeature(ctx, id)
+	if err != nil {
+		t.Fatalf("GetFeature() error = %v", err)
+	}
+	if len(got.Rules) != 2 {
+		t.Fatalf("GetFeature() rules = %+v, want 2", got.Rules)
+	}
+	if got.Rules[0].Type != "force" || got.Rules[0].ID == "" {
+		t.Fatalf("GetFeature() rules[0] = %+v, want a force rule with an assigned id", got.Rules[0])
+	}
+	if got.Rules[1].Type != "rollout" || got.Rules[1].ID == "" {
+		t.Fatalf("GetFeature() rules[1] = %+v, want a rollout rule with an assigned id", got.Rules[1])
+	}
+
+	// Reorder and modify: rollout first now, with different coverage, and
+	// the force rule's condition changed.
+	newCoverage := 0.75
+	replacement := []FeatureRule{
+		{
+			Type:            "rollout",
+			AllEnvironments: true,
+			Value:           "true",
+			Coverage:        &newCoverage,
+			HashAttribute:   "id",
+		},
+		{
+			Type:            "force",
+			Condition:       `{"country":"CA"}`,
+			AllEnvironments: true,
+			Value:           "true",
+		},
+	}
+	upd, err = c.UpdateFeature(ctx, id, FeatureRequest{Rules: &replacement})
+	if err != nil {
+		t.Fatalf("UpdateFeature(replacement rules) error = %v", err)
+	}
+	if len(upd.Rules) != 2 || upd.Rules[0].Type != "rollout" || upd.Rules[1].Type != "force" {
+		t.Fatalf("UpdateFeature(replacement rules) = %+v, want [rollout, force]", upd.Rules)
+	}
+	if upd.Rules[1].Condition != `{"country":"CA"}` {
+		t.Errorf("UpdateFeature(replacement rules) rules[1].Condition = %q, want CA", upd.Rules[1].Condition)
 	}
 }
 

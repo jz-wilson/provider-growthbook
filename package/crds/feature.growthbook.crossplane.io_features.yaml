@@ -36,7 +36,7 @@ spec:
       openAPIV3Schema:
         description: |-
           A Feature is a GrowthBook feature flag. This milestone manages its
-          value and per-environment enabled toggles; rules are not modeled.
+          value, per-environment enabled toggles, and rules.
         properties:
           apiVersion:
             description: |-
@@ -64,12 +64,13 @@ spec:
                   The feature key is the resource's external name (crossplane.io/
                   external-name annotation), defaulting to metadata.name.
 
-                  This milestone deliberately covers only the feature's value and its
-                  per-environment enabled toggles. Rules, prerequisites, revisions, and
-                  JSON schema validation are not modeled and are left for a later
-                  milestone; a Feature managed here will report ResourceUpToDate based
-                  solely on the fields below even if it also carries rules configured
-                  out of band (for example through the GrowthBook UI).
+                  This milestone covers the feature's value, its per-environment enabled
+                  toggles, and its rules (force, rollout, and experiment-ref). Rule
+                  prerequisites, revisions, and JSON schema validation are not modeled and
+                  are left for a later milestone; a Feature managed here will report
+                  ResourceUpToDate based solely on the fields below. When Rules is left
+                  nil, rules are unmanaged and any configured out of band (for example
+                  through the GrowthBook UI) are left untouched.
 
                   Deleting a Feature normally issues a plain DELETE. Some organizations
                   disable "REST API always bypasses approval requirements", in which case
@@ -114,6 +115,137 @@ spec:
                   project:
                     description: Project restricts the feature to one project id.
                     type: string
+                  rules:
+                    description: |-
+                      Rules is the feature's ordered rule list. Nil means rules are
+                      unmanaged (left as-is, including any configured out of band); a
+                      non-nil list, including an empty one, is authoritative and replaces
+                      the feature's entire rules array.
+                    items:
+                      description: |-
+                        FeatureRule is one entry in a Feature's rules array. Rules are evaluated
+                        in list order; the first matching rule wins. Type-specific fields are
+                        only meaningful for the matching Type and are otherwise ignored.
+
+                        Safe-rollout rules are out of scope: they only round-trip via a
+                        server-assigned safeRolloutId this provider does not model, so they
+                        cannot be authored or reconciled here.
+                      properties:
+                        allEnvironments:
+                          description: |-
+                            AllEnvironments, when true, applies this rule in every environment.
+                            When false, only the environments listed in Environments receive
+                            the rule.
+                          type: boolean
+                        condition:
+                          description: |-
+                            Condition is a JSON-encoded targeting condition, passed through to
+                            GrowthBook verbatim.
+                          type: string
+                        coverage:
+                          description: |-
+                            Coverage is the percentage of matched users to include, as a
+                            decimal string between "0" and "1" inclusive (for example "0.25").
+                            Applies to the "rollout" type; required when the rollout should
+                            serve fewer than 100% of matched users.
+                          pattern: ^(0(\.[0-9]+)?|1(\.0+)?)$
+                          type: string
+                        description:
+                          description: Description is free text shown in the GrowthBook
+                            UI.
+                          type: string
+                        enabled:
+                          description: Enabled toggles this rule on or off.
+                          type: boolean
+                        environments:
+                          description: |-
+                            Environments lists the environment ids this rule applies to. Used
+                            only when AllEnvironments is false.
+                          items:
+                            type: string
+                          type: array
+                        experimentId:
+                          description: |-
+                            ExperimentID links this rule to an existing experiment. Applies to
+                            the "experiment-ref" type.
+                          type: string
+                        hashAttribute:
+                          description: |-
+                            HashAttribute is the attribute to hash on for consistent user
+                            assignment. Applies to (and required by GrowthBook for) the
+                            "rollout" type.
+                          type: string
+                        id:
+                          description: |-
+                            ID is the server-assigned rule id. Leave empty to let GrowthBook
+                            assign one on create; set it (as observed via status.atProvider) to
+                            keep updates stable and target a specific existing rule.
+                          type: string
+                        savedGroups:
+                          description: SavedGroups scopes this rule to users in (or
+                            not in) saved groups.
+                          items:
+                            description: |-
+                              SavedGroupTargeting scopes a rule to users in (or not in) a set of saved
+                              groups.
+                            properties:
+                              ids:
+                                description: IDs are the saved group ids this targeting
+                                  entry references.
+                                items:
+                                  type: string
+                                type: array
+                              match:
+                                description: Match selects how the listed saved groups
+                                  are combined.
+                                enum:
+                                - all
+                                - none
+                                - any
+                                type: string
+                            required:
+                            - ids
+                            - match
+                            type: object
+                          type: array
+                        type:
+                          description: Type selects the rule kind.
+                          enum:
+                          - force
+                          - rollout
+                          - experiment-ref
+                          type: string
+                        value:
+                          description: |-
+                            Value is the value served when this rule matches. Applies to the
+                            "force" and "rollout" types.
+                          type: string
+                        variations:
+                          description: |-
+                            Variations maps experiment variations to the values this feature
+                            serves for each. Applies to the "experiment-ref" type.
+                          items:
+                            description: |-
+                              FeatureRuleVariation maps one experiment variation to the value this
+                              feature serves when that variation is assigned.
+                            properties:
+                              value:
+                                description: Value is the feature value served for
+                                  this variation.
+                                type: string
+                              variationId:
+                                description: VariationID is the id of the experiment
+                                  variation.
+                                type: string
+                            required:
+                            - value
+                            - variationId
+                            type: object
+                          type: array
+                      required:
+                      - type
+                      type: object
+                    type: array
                   tags:
                     description: |-
                       Tags are labels associated with the feature. Nil means unmanaged;
@@ -230,6 +362,30 @@ spec:
                         description: Version is the revision number.
                         type: integer
                     type: object
+                  rules:
+                    description: Rules reports the feature's observed rule list.
+                    items:
+                      description: |-
+                        FeatureRuleObservation reports the observed state of one rule on a
+                        Feature.
+                      properties:
+                        enabled:
+                          description: Enabled reports whether the rule is on.
+                          type: boolean
+                        environments:
+                          description: Environments reports the environment ids the
+                            rule is scoped to.
+                          items:
+                            type: string
+                          type: array
+                        id:
+                          description: ID is the server-assigned rule id.
+                          type: string
+                        type:
+                          description: Type is the observed rule kind.
+                          type: string
+                      type: object
+                    type: array
                 type: object
               conditions:
                 description: Conditions of the resource.
