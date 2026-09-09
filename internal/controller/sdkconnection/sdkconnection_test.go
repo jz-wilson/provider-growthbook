@@ -38,7 +38,7 @@ import (
 
 func TestObserve(t *testing.T) {
 	type fields struct {
-		service interface{}
+		service *stubService
 	}
 
 	type args struct {
@@ -57,7 +57,17 @@ func TestObserve(t *testing.T) {
 		args   args
 		want   want
 	}{
-		// TODO: Add test cases.
+		"NotImplemented": {
+			reason: "Observe should always return ErrNotImplemented because the SDKConnection controller has no GrowthBook client yet.",
+			args: args{
+				ctx: context.Background(),
+				cr:  &v1alpha1.SDKConnection{},
+			},
+			want: want{
+				o:   managed.ExternalObservation{},
+				err: ErrNotImplemented,
+			},
+		},
 	}
 
 	for name, tc := range cases {
@@ -69,6 +79,150 @@ func TestObserve(t *testing.T) {
 			}
 			if diff := cmp.Diff(tc.want.o, got); diff != "" {
 				t.Errorf("\n%s\ne.Observe(...): -want, +got:\n%s\n", tc.reason, diff)
+			}
+		})
+	}
+}
+
+func TestCreate(t *testing.T) {
+	type fields struct {
+		service *stubService
+	}
+
+	type args struct {
+		ctx context.Context
+		cr  *v1alpha1.SDKConnection
+	}
+
+	type want struct {
+		c   managed.ExternalCreation
+		err error
+	}
+
+	cases := map[string]struct {
+		reason string
+		fields fields
+		args   args
+		want   want
+	}{
+		"NotImplemented": {
+			reason: "Create should always return ErrNotImplemented because the SDKConnection controller has no GrowthBook client yet.",
+			args: args{
+				ctx: context.Background(),
+				cr:  &v1alpha1.SDKConnection{},
+			},
+			want: want{
+				c:   managed.ExternalCreation{},
+				err: ErrNotImplemented,
+			},
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			e := external{service: tc.fields.service}
+			got, err := e.Create(tc.args.ctx, tc.args.cr)
+			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
+				t.Errorf("\n%s\ne.Create(...): -want error, +got error:\n%s\n", tc.reason, diff)
+			}
+			if diff := cmp.Diff(tc.want.c, got); diff != "" {
+				t.Errorf("\n%s\ne.Create(...): -want, +got:\n%s\n", tc.reason, diff)
+			}
+		})
+	}
+}
+
+func TestUpdate(t *testing.T) {
+	type fields struct {
+		service *stubService
+	}
+
+	type args struct {
+		ctx context.Context
+		cr  *v1alpha1.SDKConnection
+	}
+
+	type want struct {
+		u   managed.ExternalUpdate
+		err error
+	}
+
+	cases := map[string]struct {
+		reason string
+		fields fields
+		args   args
+		want   want
+	}{
+		"NotImplemented": {
+			reason: "Update should always return ErrNotImplemented because the SDKConnection controller has no GrowthBook client yet.",
+			args: args{
+				ctx: context.Background(),
+				cr:  &v1alpha1.SDKConnection{},
+			},
+			want: want{
+				u:   managed.ExternalUpdate{},
+				err: ErrNotImplemented,
+			},
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			e := external{service: tc.fields.service}
+			got, err := e.Update(tc.args.ctx, tc.args.cr)
+			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
+				t.Errorf("\n%s\ne.Update(...): -want error, +got error:\n%s\n", tc.reason, diff)
+			}
+			if diff := cmp.Diff(tc.want.u, got); diff != "" {
+				t.Errorf("\n%s\ne.Update(...): -want, +got:\n%s\n", tc.reason, diff)
+			}
+		})
+	}
+}
+
+func TestDelete(t *testing.T) {
+	type fields struct {
+		service *stubService
+	}
+
+	type args struct {
+		ctx context.Context
+		cr  *v1alpha1.SDKConnection
+	}
+
+	type want struct {
+		d   managed.ExternalDelete
+		err error
+	}
+
+	cases := map[string]struct {
+		reason string
+		fields fields
+		args   args
+		want   want
+	}{
+		"NotImplemented": {
+			reason: "Delete should always return ErrNotImplemented so an SDKConnection object is never silently orphaned by a fake successful deletion.",
+			args: args{
+				ctx: context.Background(),
+				cr:  &v1alpha1.SDKConnection{},
+			},
+			want: want{
+				d:   managed.ExternalDelete{},
+				err: ErrNotImplemented,
+			},
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			e := external{service: tc.fields.service}
+			got, err := e.Delete(tc.args.ctx, tc.args.cr)
+			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
+				t.Errorf("\n%s\ne.Delete(...): -want error, +got error:\n%s\n", tc.reason, diff)
+			}
+			if diff := cmp.Diff(tc.want.d, got); diff != "" {
+				t.Errorf("\n%s\ne.Delete(...): -want, +got:\n%s\n", tc.reason, diff)
 			}
 		})
 	}
