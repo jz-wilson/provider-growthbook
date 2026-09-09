@@ -56,10 +56,10 @@ IMAGES = provider-growthbook
 # ====================================================================================
 # Setup XPKG
 
-XPKG_REG_ORGS ?= xpkg.upbound.io/crossplane
+XPKG_REG_ORGS ?= ghcr.io/jz-wilson
 # NOTE(hasheddan): skip promoting on xpkg.upbound.io as channel tags are
 # inferred.
-XPKG_REG_ORGS_NO_PROMOTE ?= xpkg.upbound.io/crossplane
+XPKG_REG_ORGS_NO_PROMOTE ?= ghcr.io/jz-wilson
 XPKGS = provider-growthbook
 -include build/makelib/xpkg.mk
 
