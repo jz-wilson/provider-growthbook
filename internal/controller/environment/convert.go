@@ -24,12 +24,36 @@ import (
 )
 
 // createRequest builds the POST body, including the create-only id and
-// parent.
-func createRequest(id string, p v1alpha1.EnvironmentParameters) growthbook.EnvironmentRequest {
-	req := updateRequest(p)
+// parent. Fields unset in forProvider fall back to initProvider; forProvider
+// wins whenever both set the same field. initProvider fields are only ever
+// consulted here, at creation time.
+func createRequest(id string, p v1alpha1.EnvironmentParameters, ip v1alpha1.EnvironmentInitParameters) growthbook.EnvironmentRequest {
+	merged := mergeInitProvider(p, ip)
+	req := updateRequest(merged)
 	req.ID = id
-	req.Parent = p.Parent
+	req.Parent = merged.Parent
 	return req
+}
+
+// mergeInitProvider fills any forProvider field left unset from the
+// matching initProvider field. forProvider always wins when both are set.
+func mergeInitProvider(p v1alpha1.EnvironmentParameters, ip v1alpha1.EnvironmentInitParameters) v1alpha1.EnvironmentParameters {
+	if p.Description == nil {
+		p.Description = ip.Description
+	}
+	if p.ToggleOnList == nil {
+		p.ToggleOnList = ip.ToggleOnList
+	}
+	if p.DefaultState == nil {
+		p.DefaultState = ip.DefaultState
+	}
+	if p.Projects == nil {
+		p.Projects = ip.Projects
+	}
+	if p.Parent == nil {
+		p.Parent = ip.Parent
+	}
+	return p
 }
 
 // updateRequest builds the PUT body from the mutable fields only.

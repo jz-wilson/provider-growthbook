@@ -66,6 +66,12 @@ See `examples/provider/config.yaml`.
 | `Feature` | `feature.growthbook.crossplane.io` | user-chosen key (defaults to `metadata.name`) | valueType, defaultValue, description, project, tags, archived, owner, per-environment enabled, rules |
 | `SDKConnection` | `sdk.growthbook.crossplane.io` | GrowthBook id, set after create | name, language, environment, projects, payload and proxy options; client key published as connection details |
 
+Every kind above also accepts `spec.initProvider`, mirroring `spec.forProvider`
+with every field optional. Values there are applied only when the resource is
+first created; `forProvider` wins if a field is set in both, and Crossplane
+never treats later drift in an `initProvider`-only field as out of date. Use
+it together with a `managementPolicies` value that omits `LateInitialize`.
+
 All managed resources are namespaced (Crossplane v2). Every optional field
 is opt-in: fields left unset never cause drift and are late-initialized from
 GrowthBook where that makes sense. Examples for each kind live under

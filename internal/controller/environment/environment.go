@@ -199,7 +199,7 @@ func (e *external) Observe(ctx context.Context, cr *v1alpha1.Environment) (manag
 
 // Create posts the environment under the external name as its id.
 func (e *external) Create(ctx context.Context, cr *v1alpha1.Environment) (managed.ExternalCreation, error) {
-	env, err := e.client.CreateEnvironment(ctx, createRequest(meta.GetExternalName(cr), cr.Spec.ForProvider))
+	env, err := e.client.CreateEnvironment(ctx, createRequest(meta.GetExternalName(cr), cr.Spec.ForProvider, cr.Spec.InitProvider))
 	if err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, errCreateEnvironment)
 	}
