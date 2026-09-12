@@ -34,7 +34,7 @@ func withInitRules(rules ...v1alpha1.FeatureRule) func(*v1alpha1.Feature) {
 	return func(cr *v1alpha1.Feature) { cr.Spec.InitProvider.Rules = rules }
 }
 
-func forceRule(value string) v1alpha1.FeatureRule {
+func initForceRule(value string) v1alpha1.FeatureRule {
 	return v1alpha1.FeatureRule{Type: ruleTypeForce, Value: ptr(value)}
 }
 
@@ -50,7 +50,7 @@ func TestCreateInitProvider(t *testing.T) {
 	}{
 		"InitProviderOnlyFieldIsSent": {
 			reason:      "A field set only in initProvider must be sent on Create.",
-			cr:          newFeature(withInitDescription("init desc"), withInitRules(forceRule("true"))),
+			cr:          newFeature(withInitDescription("init desc"), withInitRules(initForceRule("true"))),
 			wantDesc:    ptr("init desc"),
 			wantRuleLen: 1,
 		},
@@ -76,8 +76,12 @@ func TestCreateInitProvider(t *testing.T) {
 			if diff := cmp.Diff(tc.wantDesc, gotReq.Description); diff != "" {
 				t.Errorf("\n%s\ndescription: -want, +got:\n%s", tc.reason, diff)
 			}
-			if len(gotReq.Rules) != tc.wantRuleLen {
-				t.Errorf("\n%s\nrules len = %d, want %d", tc.reason, len(gotReq.Rules), tc.wantRuleLen)
+			gotRuleLen := 0
+			if gotReq.Rules != nil {
+				gotRuleLen = len(*gotReq.Rules)
+			}
+			if gotRuleLen != tc.wantRuleLen {
+				t.Errorf("\n%s\nrules len = %d, want %d", tc.reason, gotRuleLen, tc.wantRuleLen)
 			}
 		})
 	}
@@ -88,7 +92,7 @@ func TestCreateInitProvider(t *testing.T) {
 // marks the resource out of date, and is not copied into initProvider by
 // late-initialization.
 func TestObserveIgnoresInitProviderDrift(t *testing.T) {
-	cr := newFeature(withInitDescription("init desc"), withInitRules(forceRule("true")))
+	cr := newFeature(withInitDescription("init desc"), withInitRules(initForceRule("true")))
 	client := &fakeClient{get: func(_ context.Context, _ string) (*growthbook.Feature, error) {
 		return &growthbook.Feature{
 			ID: featureID, ValueType: "boolean", DefaultValue: valTrue,
@@ -121,7 +125,7 @@ func TestUpdateNeverSendsInitProviderOnlyValues(t *testing.T) {
 		gotReq = req
 		return &growthbook.Feature{ID: featureID, ValueType: "boolean", DefaultValue: valTrue}, nil
 	}}
-	cr := newFeature(withInitDescription("init desc"), withInitRules(forceRule("true")))
+	cr := newFeature(withInitDescription("init desc"), withInitRules(initForceRule("true")))
 
 	e := external{client: client}
 	if _, err := e.Update(context.Background(), cr); err != nil {
