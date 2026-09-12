@@ -12,6 +12,12 @@ spec:
     settings:
       statsEngine: bayesian
       confidenceLevel: "0.95"
+  # initProvider:
+  #   # Applied only when the project is first created; later drift in
+  #   # these fields against the GrowthBook API is ignored. Pair with a
+  #   # managementPolicies value that omits LateInitialize.
+  #   description: Managed by Crossplane
+  #   publicId: web
   providerConfigRef:
     kind: ProviderConfig
     name: example
