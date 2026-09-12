@@ -1,4 +1,4 @@
-module github.com/jz-wilson/provider-growthbook
+module github.com/jz-wilson/crossplane-provider-growthbook
 
 go 1.26.6
 

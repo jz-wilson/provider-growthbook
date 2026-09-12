@@ -22,8 +22,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	v1alpha1 "github.com/jz-wilson/provider-growthbook/apis/feature/v1alpha1"
-	"github.com/jz-wilson/provider-growthbook/internal/clients/growthbook"
+	v1alpha1 "github.com/jz-wilson/crossplane-provider-growthbook/apis/feature/v1alpha1"
+	"github.com/jz-wilson/crossplane-provider-growthbook/internal/clients/growthbook"
 )
 
 func withInitDescription(d string) func(*v1alpha1.Feature) {

@@ -21,8 +21,8 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
-	v1alpha1 "github.com/jz-wilson/provider-growthbook/apis/core/v1alpha1"
-	"github.com/jz-wilson/provider-growthbook/internal/clients/growthbook"
+	v1alpha1 "github.com/jz-wilson/crossplane-provider-growthbook/apis/core/v1alpha1"
+	"github.com/jz-wilson/crossplane-provider-growthbook/internal/clients/growthbook"
 )
 
 // createRequest converts the desired spec into the create request body,

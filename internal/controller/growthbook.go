@@ -20,11 +20,11 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/jz-wilson/provider-growthbook/internal/controller/config"
-	"github.com/jz-wilson/provider-growthbook/internal/controller/environment"
-	"github.com/jz-wilson/provider-growthbook/internal/controller/feature"
-	"github.com/jz-wilson/provider-growthbook/internal/controller/project"
-	"github.com/jz-wilson/provider-growthbook/internal/controller/sdkconnection"
+	"github.com/jz-wilson/crossplane-provider-growthbook/internal/controller/config"
+	"github.com/jz-wilson/crossplane-provider-growthbook/internal/controller/environment"
+	"github.com/jz-wilson/crossplane-provider-growthbook/internal/controller/feature"
+	"github.com/jz-wilson/crossplane-provider-growthbook/internal/controller/project"
+	"github.com/jz-wilson/crossplane-provider-growthbook/internal/controller/sdkconnection"
 )
 
 // SetupGated creates all GrowthBook controllers with safe-start support and adds them to

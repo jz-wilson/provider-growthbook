@@ -19,8 +19,8 @@ package sdkconnection
 import (
 	"sort"
 
-	v1alpha1 "github.com/jz-wilson/provider-growthbook/apis/sdk/v1alpha1"
-	"github.com/jz-wilson/provider-growthbook/internal/clients/growthbook"
+	v1alpha1 "github.com/jz-wilson/crossplane-provider-growthbook/apis/sdk/v1alpha1"
+	"github.com/jz-wilson/crossplane-provider-growthbook/internal/clients/growthbook"
 )
 
 // createRequest converts the desired spec into the create request body,

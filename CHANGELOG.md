@@ -37,4 +37,4 @@ managed resources.
 - An unlicensed self-hosted GrowthBook allows one project and no custom
   environments (HTTP 402); the provider surfaces the error as-is.
 
-[v0.1.0]: https://github.com/jz-wilson/provider-growthbook/releases/tag/v0.1.0
+[v0.1.0]: https://github.com/jz-wilson/crossplane-provider-growthbook/releases/tag/v0.1.0

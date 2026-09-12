@@ -37,9 +37,9 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/statemetrics"
 
-	v1alpha1 "github.com/jz-wilson/provider-growthbook/apis/core/v1alpha1"
-	apisv1alpha1 "github.com/jz-wilson/provider-growthbook/apis/v1alpha1"
-	"github.com/jz-wilson/provider-growthbook/internal/clients/growthbook"
+	v1alpha1 "github.com/jz-wilson/crossplane-provider-growthbook/apis/core/v1alpha1"
+	apisv1alpha1 "github.com/jz-wilson/crossplane-provider-growthbook/apis/v1alpha1"
+	"github.com/jz-wilson/crossplane-provider-growthbook/internal/clients/growthbook"
 )
 
 const (

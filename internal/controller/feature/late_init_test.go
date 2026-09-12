@@ -20,8 +20,8 @@ import (
 	"context"
 	"testing"
 
-	v1alpha1 "github.com/jz-wilson/provider-growthbook/apis/feature/v1alpha1"
-	"github.com/jz-wilson/provider-growthbook/internal/clients/growthbook"
+	v1alpha1 "github.com/jz-wilson/crossplane-provider-growthbook/apis/feature/v1alpha1"
+	"github.com/jz-wilson/crossplane-provider-growthbook/internal/clients/growthbook"
 )
 
 // TestInitProviderSurvivesLateInitialization walks the full reconcile

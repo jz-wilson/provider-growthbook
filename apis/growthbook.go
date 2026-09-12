@@ -20,10 +20,10 @@ package apis
 import (
 	"k8s.io/apimachinery/pkg/runtime"
 
-	corev1alpha1 "github.com/jz-wilson/provider-growthbook/apis/core/v1alpha1"
-	featurev1alpha1 "github.com/jz-wilson/provider-growthbook/apis/feature/v1alpha1"
-	sdkv1alpha1 "github.com/jz-wilson/provider-growthbook/apis/sdk/v1alpha1"
-	growthbookv1alpha1 "github.com/jz-wilson/provider-growthbook/apis/v1alpha1"
+	corev1alpha1 "github.com/jz-wilson/crossplane-provider-growthbook/apis/core/v1alpha1"
+	featurev1alpha1 "github.com/jz-wilson/crossplane-provider-growthbook/apis/feature/v1alpha1"
+	sdkv1alpha1 "github.com/jz-wilson/crossplane-provider-growthbook/apis/sdk/v1alpha1"
+	growthbookv1alpha1 "github.com/jz-wilson/crossplane-provider-growthbook/apis/v1alpha1"
 )
 
 func init() {
