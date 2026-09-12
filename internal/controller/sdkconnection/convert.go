@@ -23,6 +23,88 @@ import (
 	"github.com/jz-wilson/provider-growthbook/internal/clients/growthbook"
 )
 
+// createRequest converts the desired spec into the create request body,
+// filling any forProvider field left unset from the matching initProvider
+// field. forProvider always wins when both are set. initProvider is only
+// ever consulted here, at creation time.
+func createRequest(p v1alpha1.SDKConnectionParameters, ip v1alpha1.SDKConnectionInitParameters) growthbook.SDKConnectionRequest {
+	return request(mergeInitProvider(p, ip))
+}
+
+// mergeInitProvider fills any forProvider field left unset from the
+// matching initProvider field. forProvider always wins when both are set.
+func mergeInitProvider(p v1alpha1.SDKConnectionParameters, ip v1alpha1.SDKConnectionInitParameters) v1alpha1.SDKConnectionParameters {
+	mergeIdentityFields(&p, ip)
+	mergeScopeFields(&p, ip)
+	mergeScalarFields(&p, ip)
+	mergeBoolFields(&p, ip)
+	return p
+}
+
+// mergeIdentityFields merges the always-required string fields.
+func mergeIdentityFields(p *v1alpha1.SDKConnectionParameters, ip v1alpha1.SDKConnectionInitParameters) {
+	if p.Name == "" && ip.Name != nil {
+		p.Name = *ip.Name
+	}
+	if p.Language == "" && ip.Language != nil {
+		p.Language = *ip.Language
+	}
+	if p.Environment == "" && ip.Environment != nil {
+		p.Environment = *ip.Environment
+	}
+}
+
+// mergeScopeFields merges the optional set-valued fields.
+func mergeScopeFields(p *v1alpha1.SDKConnectionParameters, ip v1alpha1.SDKConnectionInitParameters) {
+	if p.Projects == nil {
+		p.Projects = ip.Projects
+	}
+	if p.AllowedCustomFieldsInMetadata == nil {
+		p.AllowedCustomFieldsInMetadata = ip.AllowedCustomFieldsInMetadata
+	}
+}
+
+// mergeScalarFields merges the optional non-boolean scalar fields.
+func mergeScalarFields(p *v1alpha1.SDKConnectionParameters, ip v1alpha1.SDKConnectionInitParameters) {
+	if p.SDKVersion == nil {
+		p.SDKVersion = ip.SDKVersion
+	}
+	if p.ProxyHost == nil {
+		p.ProxyHost = ip.ProxyHost
+	}
+}
+
+// mergeBoolFields merges the optional boolean toggles. Table-driven to keep
+// cyclomatic complexity low despite the field count.
+func mergeBoolFields(p *v1alpha1.SDKConnectionParameters, ip v1alpha1.SDKConnectionInitParameters) {
+	pairs := []struct {
+		dst **bool
+		src *bool
+	}{
+		{&p.EncryptPayload, ip.EncryptPayload},
+		{&p.IncludeVisualExperiments, ip.IncludeVisualExperiments},
+		{&p.IncludeDraftExperiments, ip.IncludeDraftExperiments},
+		{&p.IncludeDraftExperimentRefs, ip.IncludeDraftExperimentRefs},
+		{&p.IncludeExperimentNames, ip.IncludeExperimentNames},
+		{&p.IncludeRedirectExperiments, ip.IncludeRedirectExperiments},
+		{&p.IncludeRuleIds, ip.IncludeRuleIds},
+		{&p.IncludeProjectIdInMetadata, ip.IncludeProjectIdInMetadata},
+		{&p.IncludeCustomFieldsInMetadata, ip.IncludeCustomFieldsInMetadata},
+		{&p.IncludeTagsInMetadata, ip.IncludeTagsInMetadata},
+		{&p.IncludeExperimentScheduleInMetadata, ip.IncludeExperimentScheduleInMetadata},
+		{&p.ProxyEnabled, ip.ProxyEnabled},
+		{&p.HashSecureAttributes, ip.HashSecureAttributes},
+		{&p.RemoteEvalEnabled, ip.RemoteEvalEnabled},
+		{&p.SavedGroupReferencesEnabled, ip.SavedGroupReferencesEnabled},
+		{&p.IncludeReferencedPrerequisites, ip.IncludeReferencedPrerequisites},
+	}
+	for _, pr := range pairs {
+		if *pr.dst == nil {
+			*pr.dst = pr.src
+		}
+	}
+}
+
 // request converts the desired spec into the API request body.
 func request(p v1alpha1.SDKConnectionParameters) growthbook.SDKConnectionRequest {
 	return growthbook.SDKConnectionRequest{
