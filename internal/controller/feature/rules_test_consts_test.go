@@ -23,6 +23,8 @@ const (
 	savedGroupID1   = "sg_1"
 	ruleTypeRollout = "rollout"
 	valTrue         = "true"
+	valFalse        = "false"
+	valTypeBoolean  = "boolean"
 	envProduction   = "production"
 	envStaging      = "staging"
 	matchAny        = "any"

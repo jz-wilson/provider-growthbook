@@ -24,12 +24,36 @@ import (
 )
 
 // createRequest builds the POST body, including the create-only id and
-// parent.
-func createRequest(id string, p v1alpha1.EnvironmentParameters) growthbook.EnvironmentRequest {
-	req := updateRequest(p)
+// parent. Fields unset in forProvider fall back to initProvider; forProvider
+// wins whenever both set the same field. initProvider fields are only ever
+// consulted here, at creation time.
+func createRequest(id string, p v1alpha1.EnvironmentParameters, ip v1alpha1.EnvironmentInitParameters) growthbook.EnvironmentRequest {
+	merged := mergeInitProvider(p, ip)
+	req := updateRequest(merged)
 	req.ID = id
-	req.Parent = p.Parent
+	req.Parent = merged.Parent
 	return req
+}
+
+// mergeInitProvider fills any forProvider field left unset from the
+// matching initProvider field. forProvider always wins when both are set.
+func mergeInitProvider(p v1alpha1.EnvironmentParameters, ip v1alpha1.EnvironmentInitParameters) v1alpha1.EnvironmentParameters {
+	if p.Description == nil {
+		p.Description = ip.Description
+	}
+	if p.ToggleOnList == nil {
+		p.ToggleOnList = ip.ToggleOnList
+	}
+	if p.DefaultState == nil {
+		p.DefaultState = ip.DefaultState
+	}
+	if p.Projects == nil {
+		p.Projects = ip.Projects
+	}
+	if p.Parent == nil {
+		p.Parent = ip.Parent
+	}
+	return p
 }
 
 // updateRequest builds the PUT body from the mutable fields only.
@@ -49,30 +73,27 @@ func observation(e *growthbook.Environment) v1alpha1.EnvironmentObservation {
 
 // lateInitialize fills optional fields the user left unset from the API so
 // the spec reflects what GrowthBook actually holds. It reports whether the
-// spec changed.
-func lateInitialize(p *v1alpha1.EnvironmentParameters, ext *growthbook.Environment) bool {
-	changed := false
-	if p.Description == nil {
-		v := ext.Description
-		p.Description = &v
-		changed = true
-	}
-	if p.ToggleOnList == nil {
-		v := ext.ToggleOnList
-		p.ToggleOnList = &v
-		changed = true
-	}
-	if p.DefaultState == nil {
-		v := ext.DefaultState
-		p.DefaultState = &v
-		changed = true
-	}
-	if p.Parent == nil && ext.Parent != "" {
-		v := ext.Parent
-		p.Parent = &v
-		changed = true
+// spec changed. A field the user set in spec.initProvider is never
+// late-initialized: copying it into forProvider would make it enforced and
+// turn later API-side changes into drift, breaking the create-only contract.
+func lateInitialize(p *v1alpha1.EnvironmentParameters, ip v1alpha1.EnvironmentInitParameters, ext *growthbook.Environment) bool {
+	changed := lateInitPtr(&p.Description, ip.Description, ext.Description)
+	changed = lateInitPtr(&p.ToggleOnList, ip.ToggleOnList, ext.ToggleOnList) || changed
+	changed = lateInitPtr(&p.DefaultState, ip.DefaultState, ext.DefaultState) || changed
+	if ext.Parent != "" {
+		changed = lateInitPtr(&p.Parent, ip.Parent, ext.Parent) || changed
 	}
 	return changed
+}
+
+// lateInitPtr sets *dst to v when the user left the field unset in both
+// forProvider and initProvider. It reports whether it wrote.
+func lateInitPtr[T any](dst **T, init *T, v T) bool {
+	if *dst != nil || init != nil {
+		return false
+	}
+	*dst = &v
+	return true
 }
 
 // isUpToDate compares the mutable fields. Unset (nil) projects means the

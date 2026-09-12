@@ -90,6 +90,38 @@ spec:
                       feature list page.
                     type: boolean
                 type: object
+              initProvider:
+                description: |-
+                  InitProvider holds the same fields as forProvider, which are only
+                  applied at resource creation. Crossplane ignores later drift in these
+                  fields against the external resource.
+                properties:
+                  defaultState:
+                    description: |-
+                      DefaultState is the initial on/off state new features get in this
+                      environment.
+                    type: boolean
+                  description:
+                    description: Description is free text shown in the GrowthBook
+                      UI.
+                    type: string
+                  parent:
+                    description: |-
+                      Parent is an environment id to inherit feature rules from. Create-only
+                      and requires a GrowthBook Enterprise license.
+                    type: string
+                  projects:
+                    description: |-
+                      Projects restricts the environment to these project ids. Empty means
+                      all projects. Compared as a set.
+                    items:
+                      type: string
+                    type: array
+                  toggleOnList:
+                    description: ToggleOnList shows this environment's toggle on the
+                      feature list page.
+                    type: boolean
+                type: object
               managementPolicies:
                 default:
                 - '*'

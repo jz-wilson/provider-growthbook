@@ -19,6 +19,11 @@ spec:
     includeVisualExperiments: true
     includeDraftExperiments: false
     hashSecureAttributes: true
+  # initProvider:
+  #   # Applied only when the connection is first created; later drift in
+  #   # these fields against the GrowthBook API is ignored. Pair with a
+  #   # managementPolicies value that omits LateInitialize.
+  #   sdkVersion: "0.30.0"
   writeConnectionSecretToRef:
     name: web-production-sdk-connection
   providerConfigRef:

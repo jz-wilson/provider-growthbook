@@ -188,7 +188,7 @@ func (e *external) Observe(ctx context.Context, cr *v1alpha1.Feature) (managed.E
 		return managed.ExternalObservation{}, errors.Wrap(err, errGetFeature)
 	}
 
-	lateInit := lateInitialize(&cr.Spec.ForProvider, f)
+	lateInit := lateInitialize(&cr.Spec.ForProvider, cr.Spec.InitProvider, f)
 	cr.Status.AtProvider = observation(f)
 	cr.SetConditions(xpv2.Available())
 
@@ -201,7 +201,7 @@ func (e *external) Observe(ctx context.Context, cr *v1alpha1.Feature) (managed.E
 
 // Create posts the feature under the external name as its key.
 func (e *external) Create(ctx context.Context, cr *v1alpha1.Feature) (managed.ExternalCreation, error) {
-	req, err := createRequest(meta.GetExternalName(cr), cr.Spec.ForProvider)
+	req, err := createRequest(meta.GetExternalName(cr), cr.Spec.ForProvider, cr.Spec.InitProvider)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, errFeatureRules)
 	}

@@ -75,6 +75,39 @@ type ProjectParameters struct {
 	Settings *ProjectSettings `json:"settings,omitempty"`
 }
 
+// ProjectInitParameters are the fields of a GrowthBook Project that are
+// applied only when the resource is created. Crossplane ignores later
+// changes to these fields in the external resource; use them together with
+// managementPolicies that omit LateInitialize to avoid conflicts with
+// forProvider. Any field also set in forProvider is overridden by
+// forProvider.
+type ProjectInitParameters struct {
+	// Name is the human-readable project name.
+	// +optional
+	Name *string `json:"name,omitempty"`
+
+	// Description is free text shown in the GrowthBook UI.
+	// +optional
+	// +kubebuilder:validation:MaxLength=10000
+	Description *string `json:"description,omitempty"`
+
+	// PublicID is the URL-safe slug (lowercase letters, numbers, dashes)
+	// used in SDK payload metadata. GrowthBook derives one from Name when
+	// unset.
+	// +optional
+	// +kubebuilder:validation:Pattern=`^[a-z0-9-]+$`
+	PublicID *string `json:"publicId,omitempty"`
+
+	// RestrictAccess limits the project to members with an explicit role on
+	// it. Requires a GrowthBook Pro or Enterprise plan.
+	// +optional
+	RestrictAccess *bool `json:"restrictAccess,omitempty"`
+
+	// Settings override organization statistics settings for this project.
+	// +optional
+	Settings *ProjectSettings `json:"settings,omitempty"`
+}
+
 // ProjectObservation are the observable fields of a GrowthBook Project.
 type ProjectObservation struct {
 	// ID is the GrowthBook-assigned project id ("prj_...").
@@ -94,6 +127,12 @@ type ProjectObservation struct {
 type ProjectSpec struct {
 	xpv2.ManagedResourceSpec `json:",inline"`
 	ForProvider              ProjectParameters `json:"forProvider"`
+
+	// InitProvider holds the same fields as forProvider, which are only
+	// applied at resource creation. Crossplane ignores later drift in these
+	// fields against the external resource.
+	// +optional
+	InitProvider ProjectInitParameters `json:"initProvider,omitempty"`
 }
 
 // A ProjectStatus represents the observed state of a Project.

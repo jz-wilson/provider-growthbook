@@ -67,8 +67,8 @@ func sdkConnection(name string, mods ...func(*v1alpha1.SDKConnection)) *v1alpha1
 	cr := &v1alpha1.SDKConnection{}
 	cr.SetName(name)
 	cr.Spec.ForProvider.Name = name
-	cr.Spec.ForProvider.Language = "javascript"
-	cr.Spec.ForProvider.Environment = "production"
+	cr.Spec.ForProvider.Language = langJavaScript
+	cr.Spec.ForProvider.Environment = envProduction
 	for _, m := range mods {
 		m(cr)
 	}
@@ -81,7 +81,7 @@ func withExternalName(id string) func(*v1alpha1.SDKConnection) {
 
 func TestObserve(t *testing.T) {
 	remote := &growthbook.SDKConnection{
-		ID: "sdk_1", Name: connName, Languages: []string{"javascript"}, Environment: "production",
+		ID: sdkID, Name: connName, Languages: []string{langJavaScript}, Environment: envProduction,
 		Key: "key_1", ProxySigningKey: "proxykey_1", ProxyHost: "https://proxy.example.com",
 	}
 
@@ -105,19 +105,19 @@ func TestObserve(t *testing.T) {
 		"NotFound": {
 			reason: "A 404 from the API means the connection is gone.",
 			client: &fakeClient{get: func(_ context.Context, _ string) (*growthbook.SDKConnection, error) { return nil, errNotFound }},
-			cr:     sdkConnection(connName, withExternalName("sdk_1")),
+			cr:     sdkConnection(connName, withExternalName(sdkID)),
 			want:   want{o: managed.ExternalObservation{ResourceExists: false}},
 		},
 		"APIError": {
 			reason: "Other API errors are wrapped and returned.",
 			client: &fakeClient{get: func(_ context.Context, _ string) (*growthbook.SDKConnection, error) { return nil, errBoom }},
-			cr:     sdkConnection(connName, withExternalName("sdk_1")),
+			cr:     sdkConnection(connName, withExternalName(sdkID)),
 			want:   want{err: errors.Wrap(errBoom, errGetSDKConnection)},
 		},
 		"UpToDate": {
 			reason: "A matching spec is up to date and its connection details are returned.",
 			client: &fakeClient{get: func(_ context.Context, _ string) (*growthbook.SDKConnection, error) { return remote, nil }},
-			cr:     sdkConnection(connName, withExternalName("sdk_1")),
+			cr:     sdkConnection(connName, withExternalName(sdkID)),
 			want: want{
 				o: managed.ExternalObservation{
 					ResourceExists:   true,
@@ -131,7 +131,7 @@ func TestObserve(t *testing.T) {
 		"NameDrift": {
 			reason: "A different name needs an update.",
 			client: &fakeClient{get: func(_ context.Context, _ string) (*growthbook.SDKConnection, error) { return remote, nil }},
-			cr: sdkConnection(connName, withExternalName("sdk_1"), func(cr *v1alpha1.SDKConnection) {
+			cr: sdkConnection(connName, withExternalName(sdkID), func(cr *v1alpha1.SDKConnection) {
 				cr.Spec.ForProvider.Name = "web-renamed"
 			}),
 			want: want{
@@ -147,11 +147,11 @@ func TestObserve(t *testing.T) {
 			reason: "Optional fields the user never set do not cause drift even if GrowthBook reports a value.",
 			client: &fakeClient{get: func(_ context.Context, _ string) (*growthbook.SDKConnection, error) {
 				return &growthbook.SDKConnection{
-					ID: "sdk_1", Name: connName, Languages: []string{"javascript"}, Environment: "production",
+					ID: sdkID, Name: connName, Languages: []string{langJavaScript}, Environment: envProduction,
 					EncryptPayload: true, ProxyEnabled: true, ProxyHost: "https://proxy.example.com",
 				}, nil
 			}},
-			cr: sdkConnection(connName, withExternalName("sdk_1")),
+			cr: sdkConnection(connName, withExternalName(sdkID)),
 			want: want{
 				o: managed.ExternalObservation{
 					ResourceExists: true, ResourceUpToDate: true,
@@ -198,7 +198,7 @@ func TestCreate(t *testing.T) {
 	if cr.Status.AtProvider.ID != "sdk_new" {
 		t.Errorf("atProvider.id = %q, want sdk_new", cr.Status.AtProvider.ID)
 	}
-	wantReq := growthbook.SDKConnectionRequest{Name: connName, Language: "javascript", Environment: "production"}
+	wantReq := growthbook.SDKConnectionRequest{Name: connName, Language: langJavaScript, Environment: envProduction}
 	if diff := cmp.Diff(wantReq, gotReq); diff != "" {
 		t.Errorf("request body: -want, +got:\n%s", diff)
 	}
@@ -214,13 +214,13 @@ func TestUpdate(t *testing.T) {
 		gotID = id
 		return &growthbook.SDKConnection{ID: id, Name: req.Name, DateUpdated: "2026-09-08T01:00:00Z", Key: "key_1"}, nil
 	}}
-	cr := sdkConnection(connName, withExternalName("sdk_1"))
+	cr := sdkConnection(connName, withExternalName(sdkID))
 
 	e := external{client: client}
 	if _, err := e.Update(context.Background(), cr); err != nil {
 		t.Fatalf("e.Update(...): unexpected error %v", err)
 	}
-	if gotID != "sdk_1" {
+	if gotID != sdkID {
 		t.Errorf("updated id = %q, want sdk_1", gotID)
 	}
 	if cr.Status.AtProvider.DateUpdated != "2026-09-08T01:00:00Z" {
@@ -243,12 +243,12 @@ func TestDelete(t *testing.T) {
 		"AlreadyGone": {
 			reason: "A 404 on delete is treated as success.",
 			client: &fakeClient{delete: func(_ context.Context, _ string) error { return errNotFound }},
-			cr:     sdkConnection(connName, withExternalName("sdk_1")),
+			cr:     sdkConnection(connName, withExternalName(sdkID)),
 		},
 		"APIError": {
 			reason: "Other API errors are wrapped and returned.",
 			client: &fakeClient{delete: func(_ context.Context, _ string) error { return errBoom }},
-			cr:     sdkConnection(connName, withExternalName("sdk_1")),
+			cr:     sdkConnection(connName, withExternalName(sdkID)),
 			err:    errors.Wrap(errBoom, errDeleteSDKConnection),
 		},
 	}
@@ -263,3 +263,9 @@ func TestDelete(t *testing.T) {
 		})
 	}
 }
+
+const (
+	langJavaScript = "javascript"
+	envProduction  = "production"
+	sdkID          = "sdk_1"
+)

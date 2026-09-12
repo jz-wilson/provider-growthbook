@@ -70,7 +70,7 @@ func newFeature(mods ...func(*v1alpha1.Feature)) *v1alpha1.Feature {
 	cr := &v1alpha1.Feature{}
 	cr.SetName(featureID)
 	meta.SetExternalName(cr, featureID)
-	cr.Spec.ForProvider.ValueType = "boolean"
+	cr.Spec.ForProvider.ValueType = valTypeBoolean
 	cr.Spec.ForProvider.DefaultValue = valTrue
 	for _, m := range mods {
 		m(cr)
@@ -102,7 +102,7 @@ func withEnvironment(name string, enabled bool) func(*v1alpha1.Feature) {
 func remote() *growthbook.Feature {
 	return &growthbook.Feature{
 		ID:           featureID,
-		ValueType:    "boolean",
+		ValueType:    valTypeBoolean,
 		DefaultValue: valTrue,
 		Description:  "A feature",
 		Owner:        "alice",
@@ -256,7 +256,7 @@ func TestCreate(t *testing.T) {
 		t.Fatalf("e.Create(...): unexpected error %v", err)
 	}
 	wantReq := growthbook.FeatureRequest{
-		ID: featureID, ValueType: "boolean", DefaultValue: valTrue, Description: ptr("A feature"), Tags: []string{"a"},
+		ID: featureID, ValueType: valTypeBoolean, DefaultValue: valTrue, Description: ptr("A feature"), Tags: []string{"a"},
 		Environments: map[string]growthbook.FeatureEnvironmentRequest{envProduction: {Enabled: ptr(true)}},
 	}
 	if diff := cmp.Diff(wantReq, gotReq); diff != "" {

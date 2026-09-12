@@ -94,7 +94,7 @@ func withSettings(engine, confidence string) func(*v1alpha1.Project) {
 
 func TestObserve(t *testing.T) {
 	remote := &growthbook.Project{
-		ID: "prj_1", Name: projectName, PublicID: projectName, DateCreated: "2026-09-08T00:00:00Z",
+		ID: projID, Name: projectName, PublicID: projectName, DateCreated: "2026-09-08T00:00:00Z",
 		Settings: &growthbook.ProjectSettings{StatsEngine: ptr("bayesian"), ConfidenceLevel: ptr(0.95)},
 	}
 
@@ -119,19 +119,19 @@ func TestObserve(t *testing.T) {
 		"NotFound": {
 			reason: "A 404 from the API means the project is gone.",
 			client: &fakeClient{get: func(_ context.Context, _ string) (*growthbook.Project, error) { return nil, errNotFound }},
-			cr:     project(projectName, withExternalName("prj_1")),
+			cr:     project(projectName, withExternalName(projID)),
 			want:   want{o: managed.ExternalObservation{ResourceExists: false}},
 		},
 		"APIError": {
 			reason: "Other API errors are wrapped and returned.",
 			client: &fakeClient{get: func(_ context.Context, _ string) (*growthbook.Project, error) { return nil, errBoom }},
-			cr:     project(projectName, withExternalName("prj_1")),
+			cr:     project(projectName, withExternalName(projID)),
 			want:   want{err: errors.Wrap(errBoom, errGetProject)},
 		},
 		"UpToDateAndLateInit": {
 			reason: "Matching name with unset publicId is up to date and late-initializes publicId.",
 			client: &fakeClient{get: func(_ context.Context, _ string) (*growthbook.Project, error) { return remote, nil }},
-			cr:     project(projectName, withExternalName("prj_1")),
+			cr:     project(projectName, withExternalName(projID)),
 			want: want{
 				o:        managed.ExternalObservation{ResourceExists: true, ResourceUpToDate: true, ResourceLateInitialized: true},
 				publicID: ptr(projectName),
@@ -140,7 +140,7 @@ func TestObserve(t *testing.T) {
 		"NameDrift": {
 			reason: "A different name needs an update.",
 			client: &fakeClient{get: func(_ context.Context, _ string) (*growthbook.Project, error) { return remote, nil }},
-			cr: project(projectName, withExternalName("prj_1"), withPublicID(projectName), func(cr *v1alpha1.Project) {
+			cr: project(projectName, withExternalName(projID), withPublicID(projectName), func(cr *v1alpha1.Project) {
 				cr.Spec.ForProvider.Name = "web-renamed"
 			}),
 			want: want{
@@ -151,7 +151,7 @@ func TestObserve(t *testing.T) {
 		"SettingsMatch": {
 			reason: "Decimal settings compare numerically against the API floats.",
 			client: &fakeClient{get: func(_ context.Context, _ string) (*growthbook.Project, error) { return remote, nil }},
-			cr:     project(projectName, withExternalName("prj_1"), withPublicID(projectName), withSettings("bayesian", "0.950")),
+			cr:     project(projectName, withExternalName(projID), withPublicID(projectName), withSettings("bayesian", "0.950")),
 			want: want{
 				o:        managed.ExternalObservation{ResourceExists: true, ResourceUpToDate: true},
 				publicID: ptr(projectName),
@@ -160,7 +160,7 @@ func TestObserve(t *testing.T) {
 		"SettingsDrift": {
 			reason: "A different confidence level needs an update.",
 			client: &fakeClient{get: func(_ context.Context, _ string) (*growthbook.Project, error) { return remote, nil }},
-			cr:     project(projectName, withExternalName("prj_1"), withPublicID(projectName), withSettings("bayesian", "0.9")),
+			cr:     project(projectName, withExternalName(projID), withPublicID(projectName), withSettings("bayesian", "0.9")),
 			want: want{
 				o:        managed.ExternalObservation{ResourceExists: true, ResourceUpToDate: false},
 				publicID: ptr(projectName),
@@ -232,13 +232,13 @@ func TestUpdate(t *testing.T) {
 		gotID = id
 		return &growthbook.Project{ID: id, Name: req.Name, DateUpdated: "2026-09-08T01:00:00Z"}, nil
 	}}
-	cr := project(projectName, withExternalName("prj_1"))
+	cr := project(projectName, withExternalName(projID))
 
 	e := external{client: client}
 	if _, err := e.Update(context.Background(), cr); err != nil {
 		t.Fatalf("e.Update(...): unexpected error %v", err)
 	}
-	if gotID != "prj_1" {
+	if gotID != projID {
 		t.Errorf("updated id = %q, want prj_1", gotID)
 	}
 	if cr.Status.AtProvider.DateUpdated != "2026-09-08T01:00:00Z" {
@@ -261,12 +261,12 @@ func TestDelete(t *testing.T) {
 		"AlreadyGone": {
 			reason: "A 404 on delete is treated as success.",
 			client: &fakeClient{delete: func(_ context.Context, _ string) error { return errNotFound }},
-			cr:     project(projectName, withExternalName("prj_1")),
+			cr:     project(projectName, withExternalName(projID)),
 		},
 		"APIError": {
 			reason: "Other API errors are wrapped and returned.",
 			client: &fakeClient{delete: func(_ context.Context, _ string) error { return errBoom }},
-			cr:     project(projectName, withExternalName("prj_1")),
+			cr:     project(projectName, withExternalName(projID)),
 			err:    errors.Wrap(errBoom, errDeleteProject),
 		},
 	}
@@ -281,3 +281,5 @@ func TestDelete(t *testing.T) {
 		})
 	}
 }
+
+const projID = "prj_1"

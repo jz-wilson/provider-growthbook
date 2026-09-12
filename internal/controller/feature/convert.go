@@ -24,15 +24,63 @@ import (
 )
 
 // createRequest builds the POST body, including the create-only id and
-// valueType.
-func createRequest(id string, p v1alpha1.FeatureParameters) (growthbook.FeatureRequest, error) {
-	req, err := updateRequest(p)
+// valueType. Fields unset in forProvider fall back to initProvider;
+// forProvider wins whenever both set the same field. initProvider fields
+// are only ever consulted here, at creation time.
+func createRequest(id string, p v1alpha1.FeatureParameters, ip v1alpha1.FeatureInitParameters) (growthbook.FeatureRequest, error) {
+	merged := mergeInitProvider(p, ip)
+	req, err := updateRequest(merged)
 	if err != nil {
 		return req, err
 	}
 	req.ID = id
-	req.ValueType = p.ValueType
+	req.ValueType = merged.ValueType
 	return req, nil
+}
+
+// mergeInitProvider fills any forProvider field left unset from the
+// matching initProvider field. forProvider always wins when both are set.
+// Split into smaller helpers to keep cyclomatic complexity low.
+func mergeInitProvider(p v1alpha1.FeatureParameters, ip v1alpha1.FeatureInitParameters) v1alpha1.FeatureParameters {
+	mergeValueFields(&p, ip)
+	mergeMetadataFields(&p, ip)
+	return p
+}
+
+// mergeValueFields merges the always-required value fields.
+func mergeValueFields(p *v1alpha1.FeatureParameters, ip v1alpha1.FeatureInitParameters) {
+	if p.ValueType == "" && ip.ValueType != nil {
+		p.ValueType = *ip.ValueType
+	}
+	if p.DefaultValue == "" && ip.DefaultValue != nil {
+		p.DefaultValue = *ip.DefaultValue
+	}
+}
+
+// mergeMetadataFields merges the optional descriptive fields, environments,
+// and rules.
+func mergeMetadataFields(p *v1alpha1.FeatureParameters, ip v1alpha1.FeatureInitParameters) {
+	if p.Description == nil {
+		p.Description = ip.Description
+	}
+	if p.Project == nil {
+		p.Project = ip.Project
+	}
+	if p.Tags == nil {
+		p.Tags = ip.Tags
+	}
+	if p.Archived == nil {
+		p.Archived = ip.Archived
+	}
+	if p.Owner == nil {
+		p.Owner = ip.Owner
+	}
+	if p.Environments == nil {
+		p.Environments = ip.Environments
+	}
+	if p.Rules == nil {
+		p.Rules = ip.Rules
+	}
 }
 
 // updateRequest builds the update body from the mutable fields only.
@@ -89,25 +137,28 @@ func observation(f *growthbook.Feature) v1alpha1.FeatureObservation {
 
 // lateInitialize fills optional fields the user left unset from the API so
 // the spec reflects what GrowthBook actually holds. It reports whether the
-// spec changed.
-func lateInitialize(p *v1alpha1.FeatureParameters, ext *growthbook.Feature) bool {
-	changed := false
-	if p.Description == nil {
-		v := ext.Description
-		p.Description = &v
-		changed = true
+// spec changed. A field the user set in spec.initProvider is never
+// late-initialized: copying it into forProvider would make it enforced and
+// turn later API-side changes into drift, breaking the create-only contract.
+func lateInitialize(p *v1alpha1.FeatureParameters, ip v1alpha1.FeatureInitParameters, ext *growthbook.Feature) bool {
+	changed := lateInitPtr(&p.Description, ip.Description, ext.Description)
+	if ext.Owner != "" {
+		changed = lateInitPtr(&p.Owner, ip.Owner, ext.Owner) || changed
 	}
-	if p.Owner == nil && ext.Owner != "" {
-		v := ext.Owner
-		p.Owner = &v
-		changed = true
-	}
-	if p.Project == nil && ext.Project != "" {
-		v := ext.Project
-		p.Project = &v
-		changed = true
+	if ext.Project != "" {
+		changed = lateInitPtr(&p.Project, ip.Project, ext.Project) || changed
 	}
 	return changed
+}
+
+// lateInitPtr sets *dst to v when the user left the field unset in both
+// forProvider and initProvider. It reports whether it wrote.
+func lateInitPtr[T any](dst **T, init *T, v T) bool {
+	if *dst != nil || init != nil {
+		return false
+	}
+	*dst = &v
+	return true
 }
 
 // isUpToDate compares only the fields the user set. Tags compare as a set.

@@ -267,6 +267,186 @@ spec:
                 - defaultValue
                 - valueType
                 type: object
+              initProvider:
+                description: |-
+                  InitProvider holds the same fields as forProvider, which are only
+                  applied at resource creation. Crossplane ignores later drift in these
+                  fields against the external resource.
+                properties:
+                  archived:
+                    description: Archived hides the feature from the default feature
+                      list.
+                    type: boolean
+                  defaultValue:
+                    description: DefaultValue is the value served when the feature
+                      is enabled.
+                    type: string
+                  description:
+                    description: Description is free text shown in the GrowthBook
+                      UI.
+                    type: string
+                  environments:
+                    additionalProperties:
+                      description: |-
+                        FeatureEnvironment is the desired state of a Feature within one
+                        environment.
+                      properties:
+                        enabled:
+                          description: Enabled toggles the feature on or off in this
+                            environment.
+                          type: boolean
+                      type: object
+                    description: Environments maps an environment id to its desired
+                      enabled state.
+                    type: object
+                  owner:
+                    description: Owner is the userId or email address of the feature's
+                      owner.
+                    type: string
+                  project:
+                    description: Project restricts the feature to one project id.
+                    type: string
+                  rules:
+                    description: Rules is the feature's ordered rule list.
+                    items:
+                      description: |-
+                        FeatureRule is one entry in a Feature's rules array. Rules are evaluated
+                        in list order; the first matching rule wins. Type-specific fields are
+                        only meaningful for the matching Type and are otherwise ignored.
+
+                        Safe-rollout rules are out of scope: they only round-trip via a
+                        server-assigned safeRolloutId this provider does not model, so they
+                        cannot be authored or reconciled here.
+                      properties:
+                        allEnvironments:
+                          description: |-
+                            AllEnvironments, when true, applies this rule in every environment.
+                            When false, only the environments listed in Environments receive
+                            the rule.
+                          type: boolean
+                        condition:
+                          description: |-
+                            Condition is a JSON-encoded targeting condition, passed through to
+                            GrowthBook verbatim.
+                          type: string
+                        coverage:
+                          description: |-
+                            Coverage is the percentage of matched users to include, as a
+                            decimal string between "0" and "1" inclusive (for example "0.25").
+                            Applies to the "rollout" type; required when the rollout should
+                            serve fewer than 100% of matched users.
+                          pattern: ^(0(\.[0-9]+)?|1(\.0+)?)$
+                          type: string
+                        description:
+                          description: Description is free text shown in the GrowthBook
+                            UI.
+                          type: string
+                        enabled:
+                          description: Enabled toggles this rule on or off.
+                          type: boolean
+                        environments:
+                          description: |-
+                            Environments lists the environment ids this rule applies to. Used
+                            only when AllEnvironments is false.
+                          items:
+                            type: string
+                          type: array
+                        experimentId:
+                          description: |-
+                            ExperimentID links this rule to an existing experiment. Applies to
+                            the "experiment-ref" type.
+                          type: string
+                        hashAttribute:
+                          description: |-
+                            HashAttribute is the attribute to hash on for consistent user
+                            assignment. Applies to (and required by GrowthBook for) the
+                            "rollout" type.
+                          type: string
+                        id:
+                          description: |-
+                            ID is the server-assigned rule id. Leave empty to let GrowthBook
+                            assign one on create; set it (as observed via status.atProvider) to
+                            keep updates stable and target a specific existing rule.
+                          type: string
+                        savedGroups:
+                          description: SavedGroups scopes this rule to users in (or
+                            not in) saved groups.
+                          items:
+                            description: |-
+                              SavedGroupTargeting scopes a rule to users in (or not in) a set of saved
+                              groups.
+                            properties:
+                              ids:
+                                description: IDs are the saved group ids this targeting
+                                  entry references.
+                                items:
+                                  type: string
+                                type: array
+                              match:
+                                description: Match selects how the listed saved groups
+                                  are combined.
+                                enum:
+                                - all
+                                - none
+                                - any
+                                type: string
+                            required:
+                            - ids
+                            - match
+                            type: object
+                          type: array
+                        type:
+                          description: Type selects the rule kind.
+                          enum:
+                          - force
+                          - rollout
+                          - experiment-ref
+                          type: string
+                        value:
+                          description: |-
+                            Value is the value served when this rule matches. Applies to the
+                            "force" and "rollout" types.
+                          type: string
+                        variations:
+                          description: |-
+                            Variations maps experiment variations to the values this feature
+                            serves for each. Applies to the "experiment-ref" type.
+                          items:
+                            description: |-
+                              FeatureRuleVariation maps one experiment variation to the value this
+                              feature serves when that variation is assigned.
+                            properties:
+                              value:
+                                description: Value is the feature value served for
+                                  this variation.
+                                type: string
+                              variationId:
+                                description: VariationID is the id of the experiment
+                                  variation.
+                                type: string
+                            required:
+                            - value
+                            - variationId
+                            type: object
+                          type: array
+                      required:
+                      - type
+                      type: object
+                    type: array
+                  tags:
+                    description: Tags are labels associated with the feature.
+                    items:
+                      type: string
+                    type: array
+                  valueType:
+                    description: ValueType is the data type of the feature payload.
+                    enum:
+                    - boolean
+                    - string
+                    - number
+                    - json
+                    type: string
+                type: object
               managementPolicies:
                 default:
                 - '*'

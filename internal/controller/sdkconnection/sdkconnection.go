@@ -213,7 +213,7 @@ func (e *external) Observe(ctx context.Context, cr *v1alpha1.SDKConnection) (man
 // Create posts the connection and records the returned id as the external
 // name.
 func (e *external) Create(ctx context.Context, cr *v1alpha1.SDKConnection) (managed.ExternalCreation, error) {
-	sc, err := e.client.CreateSDKConnection(ctx, request(cr.Spec.ForProvider))
+	sc, err := e.client.CreateSDKConnection(ctx, createRequest(cr.Spec.ForProvider, cr.Spec.InitProvider))
 	if err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, errCreateSDKConnection)
 	}

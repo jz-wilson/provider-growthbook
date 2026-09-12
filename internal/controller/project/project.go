@@ -195,7 +195,7 @@ func (e *external) Observe(ctx context.Context, cr *v1alpha1.Project) (managed.E
 		return managed.ExternalObservation{}, errors.Wrap(err, errGetProject)
 	}
 
-	lateInit := lateInitialize(&cr.Spec.ForProvider, p)
+	lateInit := lateInitialize(&cr.Spec.ForProvider, cr.Spec.InitProvider, p)
 	cr.Status.AtProvider = observation(p)
 	cr.SetConditions(xpv2.Available())
 
@@ -208,7 +208,7 @@ func (e *external) Observe(ctx context.Context, cr *v1alpha1.Project) (managed.E
 
 // Create posts the project and records the returned id as the external name.
 func (e *external) Create(ctx context.Context, cr *v1alpha1.Project) (managed.ExternalCreation, error) {
-	req, err := request(cr.Spec.ForProvider)
+	req, err := createRequest(cr.Spec.ForProvider, cr.Spec.InitProvider)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, errSettings)
 	}

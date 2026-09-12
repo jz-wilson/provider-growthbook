@@ -25,6 +25,33 @@ import (
 	"github.com/jz-wilson/provider-growthbook/internal/clients/growthbook"
 )
 
+// createRequest converts the desired spec into the create request body,
+// filling any forProvider field left unset from the matching initProvider
+// field. forProvider always wins when both are set. initProvider is only
+// ever consulted here, at creation time.
+func createRequest(p v1alpha1.ProjectParameters, ip v1alpha1.ProjectInitParameters) (growthbook.ProjectRequest, error) {
+	return request(mergeInitProvider(p, ip))
+}
+
+func mergeInitProvider(p v1alpha1.ProjectParameters, ip v1alpha1.ProjectInitParameters) v1alpha1.ProjectParameters {
+	if p.Name == "" && ip.Name != nil {
+		p.Name = *ip.Name
+	}
+	if p.Description == nil {
+		p.Description = ip.Description
+	}
+	if p.PublicID == nil {
+		p.PublicID = ip.PublicID
+	}
+	if p.RestrictAccess == nil {
+		p.RestrictAccess = ip.RestrictAccess
+	}
+	if p.Settings == nil {
+		p.Settings = ip.Settings
+	}
+	return p
+}
+
 // request converts the desired spec into the API request body.
 func request(p v1alpha1.ProjectParameters) (growthbook.ProjectRequest, error) {
 	req := growthbook.ProjectRequest{
@@ -71,15 +98,17 @@ func observation(p *growthbook.Project) v1alpha1.ProjectObservation {
 }
 
 // lateInitialize fills server-generated fields the user left unset. It
-// reports whether the spec changed.
-func lateInitialize(p *v1alpha1.ProjectParameters, ext *growthbook.Project) bool {
-	changed := false
-	if p.PublicID == nil && ext.PublicID != "" {
-		v := ext.PublicID
-		p.PublicID = &v
-		changed = true
+// reports whether the spec changed. A field the user set in
+// spec.initProvider is never late-initialized: copying it into forProvider
+// would make it enforced and turn later API-side changes into drift,
+// breaking the create-only contract.
+func lateInitialize(p *v1alpha1.ProjectParameters, ip v1alpha1.ProjectInitParameters, ext *growthbook.Project) bool {
+	if p.PublicID != nil || ip.PublicID != nil || ext.PublicID == "" {
+		return false
 	}
-	return changed
+	v := ext.PublicID
+	p.PublicID = &v
+	return true
 }
 
 // isUpToDate compares only the fields the user set. Unset optional fields

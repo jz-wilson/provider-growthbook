@@ -13,6 +13,12 @@ spec:
     toggleOnList: true
     defaultState: false
     # projects: [prj_abc123]   # restrict to specific project ids
+  # initProvider:
+  #   # Applied only when the environment is first created; later drift in
+  #   # these fields against the GrowthBook API is ignored. Pair with a
+  #   # managementPolicies value that omits LateInitialize.
+  #   description: Staging environment managed by Crossplane
+  #   parent: production
   providerConfigRef:
     kind: ProviderConfig
     name: example

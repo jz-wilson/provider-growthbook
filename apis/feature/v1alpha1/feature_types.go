@@ -96,6 +96,51 @@ type FeatureParameters struct {
 	Rules []FeatureRule `json:"rules,omitempty"`
 }
 
+// FeatureInitParameters are the fields of a GrowthBook Feature that are
+// applied only when the resource is created. Crossplane ignores later
+// changes to these fields in the external resource; use them together with
+// managementPolicies that omit LateInitialize to avoid conflicts with
+// forProvider. Any field also set in forProvider is overridden by
+// forProvider.
+type FeatureInitParameters struct {
+	// ValueType is the data type of the feature payload.
+	// +optional
+	// +kubebuilder:validation:Enum=boolean;string;number;json
+	ValueType *string `json:"valueType,omitempty"`
+
+	// DefaultValue is the value served when the feature is enabled.
+	// +optional
+	DefaultValue *string `json:"defaultValue,omitempty"`
+
+	// Description is free text shown in the GrowthBook UI.
+	// +optional
+	Description *string `json:"description,omitempty"`
+
+	// Project restricts the feature to one project id.
+	// +optional
+	Project *string `json:"project,omitempty"`
+
+	// Tags are labels associated with the feature.
+	// +optional
+	Tags []string `json:"tags,omitempty"`
+
+	// Archived hides the feature from the default feature list.
+	// +optional
+	Archived *bool `json:"archived,omitempty"`
+
+	// Owner is the userId or email address of the feature's owner.
+	// +optional
+	Owner *string `json:"owner,omitempty"`
+
+	// Environments maps an environment id to its desired enabled state.
+	// +optional
+	Environments map[string]FeatureEnvironment `json:"environments,omitempty"`
+
+	// Rules is the feature's ordered rule list.
+	// +optional
+	Rules []FeatureRule `json:"rules,omitempty"`
+}
+
 // FeatureEnvironmentObservation is the observed state of a Feature within
 // one environment.
 type FeatureEnvironmentObservation struct {
@@ -135,6 +180,12 @@ type FeatureObservation struct {
 type FeatureSpec struct {
 	xpv2.ManagedResourceSpec `json:",inline"`
 	ForProvider              FeatureParameters `json:"forProvider"`
+
+	// InitProvider holds the same fields as forProvider, which are only
+	// applied at resource creation. Crossplane ignores later drift in these
+	// fields against the external resource.
+	// +optional
+	InitProvider FeatureInitParameters `json:"initProvider,omitempty"`
 }
 
 // A FeatureStatus represents the observed state of a Feature.

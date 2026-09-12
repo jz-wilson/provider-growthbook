@@ -108,6 +108,55 @@ spec:
                 required:
                 - name
                 type: object
+              initProvider:
+                description: |-
+                  InitProvider holds the same fields as forProvider, which are only
+                  applied at resource creation. Crossplane ignores later drift in these
+                  fields against the external resource.
+                properties:
+                  description:
+                    description: Description is free text shown in the GrowthBook
+                      UI.
+                    maxLength: 10000
+                    type: string
+                  name:
+                    description: Name is the human-readable project name.
+                    type: string
+                  publicId:
+                    description: |-
+                      PublicID is the URL-safe slug (lowercase letters, numbers, dashes)
+                      used in SDK payload metadata. GrowthBook derives one from Name when
+                      unset.
+                    pattern: ^[a-z0-9-]+$
+                    type: string
+                  restrictAccess:
+                    description: |-
+                      RestrictAccess limits the project to members with an explicit role on
+                      it. Requires a GrowthBook Pro or Enterprise plan.
+                    type: boolean
+                  settings:
+                    description: Settings override organization statistics settings
+                      for this project.
+                    properties:
+                      confidenceLevel:
+                        description: |-
+                          ConfidenceLevel is the Bayesian chance-to-win threshold as a decimal
+                          string, for example "0.95".
+                        pattern: ^(0(\.[0-9]+)?|1(\.0+)?)$
+                        type: string
+                      pValueThreshold:
+                        description: |-
+                          PValueThreshold is the frequentist p-value threshold as a decimal
+                          string, for example "0.05".
+                        pattern: ^(0(\.[0-9]+)?|1(\.0+)?)$
+                        type: string
+                      statsEngine:
+                        description: |-
+                          StatsEngine selects the statistics engine, for example "bayesian" or
+                          "frequentist".
+                        type: string
+                    type: object
+                type: object
               managementPolicies:
                 default:
                 - '*'

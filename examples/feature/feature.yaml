@@ -42,6 +42,16 @@ spec:
     #     value: "true"
     #     coverage: "0.25"
     #     hashAttribute: id
+  # initProvider:
+  #   # Applied only when the feature is first created; later drift in
+  #   # these fields (including rules) against the GrowthBook API is
+  #   # ignored. Pair with a managementPolicies value that omits
+  #   # LateInitialize.
+  #   description: Enables the redesigned checkout flow
+  #   rules:
+  #     - type: force
+  #       allEnvironments: true
+  #       value: "true"
   providerConfigRef:
     kind: ProviderConfig
     name: example
