@@ -98,9 +98,14 @@ func TestObserveIgnoresInitProviderDrift(t *testing.T) {
 	if err != nil {
 		t.Fatalf("e.Observe(...): unexpected error %v", err)
 	}
-	want := managed.ExternalObservation{ResourceExists: true, ResourceUpToDate: true, ResourceLateInitialized: true}
+	// publicId is set only in initProvider, so late-initialization must leave
+	// forProvider.publicId unset and report nothing late-initialized.
+	want := managed.ExternalObservation{ResourceExists: true, ResourceUpToDate: true, ResourceLateInitialized: false}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("initProvider-only field must never cause drift: -want, +got:\n%s", diff)
+	}
+	if cr.Spec.ForProvider.PublicID != nil {
+		t.Errorf("late-initialization must not copy initProvider-only publicId into forProvider: got %q", *cr.Spec.ForProvider.PublicID)
 	}
 	if cr.Spec.InitProvider.PublicID == nil || *cr.Spec.InitProvider.PublicID != "init-web" {
 		t.Errorf("late-initialization must not overwrite initProvider: got %v", cr.Spec.InitProvider.PublicID)

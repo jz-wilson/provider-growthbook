@@ -98,15 +98,17 @@ func observation(p *growthbook.Project) v1alpha1.ProjectObservation {
 }
 
 // lateInitialize fills server-generated fields the user left unset. It
-// reports whether the spec changed.
-func lateInitialize(p *v1alpha1.ProjectParameters, ext *growthbook.Project) bool {
-	changed := false
-	if p.PublicID == nil && ext.PublicID != "" {
-		v := ext.PublicID
-		p.PublicID = &v
-		changed = true
+// reports whether the spec changed. A field the user set in
+// spec.initProvider is never late-initialized: copying it into forProvider
+// would make it enforced and turn later API-side changes into drift,
+// breaking the create-only contract.
+func lateInitialize(p *v1alpha1.ProjectParameters, ip v1alpha1.ProjectInitParameters, ext *growthbook.Project) bool {
+	if p.PublicID != nil || ip.PublicID != nil || ext.PublicID == "" {
+		return false
 	}
-	return changed
+	v := ext.PublicID
+	p.PublicID = &v
+	return true
 }
 
 // isUpToDate compares only the fields the user set. Unset optional fields

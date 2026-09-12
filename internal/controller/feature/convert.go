@@ -137,25 +137,28 @@ func observation(f *growthbook.Feature) v1alpha1.FeatureObservation {
 
 // lateInitialize fills optional fields the user left unset from the API so
 // the spec reflects what GrowthBook actually holds. It reports whether the
-// spec changed.
-func lateInitialize(p *v1alpha1.FeatureParameters, ext *growthbook.Feature) bool {
-	changed := false
-	if p.Description == nil {
-		v := ext.Description
-		p.Description = &v
-		changed = true
+// spec changed. A field the user set in spec.initProvider is never
+// late-initialized: copying it into forProvider would make it enforced and
+// turn later API-side changes into drift, breaking the create-only contract.
+func lateInitialize(p *v1alpha1.FeatureParameters, ip v1alpha1.FeatureInitParameters, ext *growthbook.Feature) bool {
+	changed := lateInitPtr(&p.Description, ip.Description, ext.Description)
+	if ext.Owner != "" {
+		changed = lateInitPtr(&p.Owner, ip.Owner, ext.Owner) || changed
 	}
-	if p.Owner == nil && ext.Owner != "" {
-		v := ext.Owner
-		p.Owner = &v
-		changed = true
-	}
-	if p.Project == nil && ext.Project != "" {
-		v := ext.Project
-		p.Project = &v
-		changed = true
+	if ext.Project != "" {
+		changed = lateInitPtr(&p.Project, ip.Project, ext.Project) || changed
 	}
 	return changed
+}
+
+// lateInitPtr sets *dst to v when the user left the field unset in both
+// forProvider and initProvider. It reports whether it wrote.
+func lateInitPtr[T any](dst **T, init *T, v T) bool {
+	if *dst != nil || init != nil {
+		return false
+	}
+	*dst = &v
+	return true
 }
 
 // isUpToDate compares only the fields the user set. Tags compare as a set.

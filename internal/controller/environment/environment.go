@@ -186,7 +186,7 @@ func (e *external) Observe(ctx context.Context, cr *v1alpha1.Environment) (manag
 		return managed.ExternalObservation{}, errors.Wrap(err, errGetEnvironment)
 	}
 
-	lateInit := lateInitialize(&cr.Spec.ForProvider, env)
+	lateInit := lateInitialize(&cr.Spec.ForProvider, cr.Spec.InitProvider, env)
 	cr.Status.AtProvider = observation(env)
 	cr.SetConditions(xpv2.Available())
 
