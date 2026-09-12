@@ -137,6 +137,119 @@ type SDKConnectionParameters struct {
 	IncludeReferencedPrerequisites *bool `json:"includeReferencedPrerequisites,omitempty"`
 }
 
+// SDKConnectionInitParameters are the fields of a GrowthBook SDK Connection
+// that are applied only when the resource is created. Crossplane ignores
+// later changes to these fields in the external resource; use them together
+// with managementPolicies that omit LateInitialize to avoid conflicts with
+// forProvider. Any field also set in forProvider is overridden by
+// forProvider.
+type SDKConnectionInitParameters struct {
+	// Name is the human-readable connection name.
+	// +optional
+	Name *string `json:"name,omitempty"`
+
+	// Language is the SDK language/platform this connection targets, for
+	// example "javascript", "react", "go", or "nodejs".
+	// +optional
+	Language *string `json:"language,omitempty"`
+
+	// Environment is the id of the GrowthBook environment this connection
+	// serves.
+	// +optional
+	Environment *string `json:"environment,omitempty"`
+
+	// Projects restricts the connection to the given project ids.
+	// +optional
+	Projects []string `json:"projects,omitempty"`
+
+	// SDKVersion is the SDK version this connection targets.
+	// +optional
+	SDKVersion *string `json:"sdkVersion,omitempty"`
+
+	// EncryptPayload enables payload encryption for this connection.
+	// +optional
+	EncryptPayload *bool `json:"encryptPayload,omitempty"`
+
+	// IncludeVisualExperiments includes visual editor experiments in the
+	// SDK payload.
+	// +optional
+	IncludeVisualExperiments *bool `json:"includeVisualExperiments,omitempty"`
+
+	// IncludeDraftExperiments includes draft (not yet running) experiments
+	// in the SDK payload.
+	// +optional
+	IncludeDraftExperiments *bool `json:"includeDraftExperiments,omitempty"`
+
+	// IncludeDraftExperimentRefs includes experiment-ref rules linked to
+	// draft experiments in the SDK payload.
+	// +optional
+	IncludeDraftExperimentRefs *bool `json:"includeDraftExperimentRefs,omitempty"`
+
+	// IncludeExperimentNames includes experiment names in the SDK payload.
+	// +optional
+	IncludeExperimentNames *bool `json:"includeExperimentNames,omitempty"`
+
+	// IncludeRedirectExperiments includes URL redirect experiments in the
+	// SDK payload.
+	// +optional
+	IncludeRedirectExperiments *bool `json:"includeRedirectExperiments,omitempty"`
+
+	// IncludeRuleIds includes rule ids in the SDK payload.
+	// +optional
+	IncludeRuleIds *bool `json:"includeRuleIds,omitempty"`
+
+	// IncludeProjectIdInMetadata includes the project id in feature
+	// metadata.
+	// +optional
+	IncludeProjectIdInMetadata *bool `json:"includeProjectIdInMetadata,omitempty"`
+
+	// IncludeCustomFieldsInMetadata includes custom fields in feature
+	// metadata.
+	// +optional
+	IncludeCustomFieldsInMetadata *bool `json:"includeCustomFieldsInMetadata,omitempty"`
+
+	// AllowedCustomFieldsInMetadata limits which custom fields are included
+	// when IncludeCustomFieldsInMetadata is set.
+	// +optional
+	AllowedCustomFieldsInMetadata []string `json:"allowedCustomFieldsInMetadata,omitempty"`
+
+	// IncludeTagsInMetadata includes tags in feature metadata.
+	// +optional
+	IncludeTagsInMetadata *bool `json:"includeTagsInMetadata,omitempty"`
+
+	// IncludeExperimentScheduleInMetadata includes experiment scheduling
+	// info in feature metadata.
+	// +optional
+	IncludeExperimentScheduleInMetadata *bool `json:"includeExperimentScheduleInMetadata,omitempty"`
+
+	// ProxyEnabled enables the GrowthBook proxy for this connection.
+	// +optional
+	ProxyEnabled *bool `json:"proxyEnabled,omitempty"`
+
+	// ProxyHost is the proxy host to use when ProxyEnabled is true.
+	// +optional
+	ProxyHost *string `json:"proxyHost,omitempty"`
+
+	// HashSecureAttributes hashes secure attributes before they leave the
+	// server.
+	// +optional
+	HashSecureAttributes *bool `json:"hashSecureAttributes,omitempty"`
+
+	// RemoteEvalEnabled enables remote evaluation for this connection.
+	// +optional
+	RemoteEvalEnabled *bool `json:"remoteEvalEnabled,omitempty"`
+
+	// SavedGroupReferencesEnabled enables saved group references in the SDK
+	// payload.
+	// +optional
+	SavedGroupReferencesEnabled *bool `json:"savedGroupReferencesEnabled,omitempty"`
+
+	// IncludeReferencedPrerequisites carries prerequisite feature flags into
+	// the payload even when they target other projects.
+	// +optional
+	IncludeReferencedPrerequisites *bool `json:"includeReferencedPrerequisites,omitempty"`
+}
+
 // SDKConnectionObservation are the observable, non-secret fields of a
 // GrowthBook SDK Connection. The client key and proxy signing key are
 // secrets: they are only ever surfaced through connection details, never
@@ -180,6 +293,12 @@ type SDKConnectionObservation struct {
 type SDKConnectionSpec struct {
 	xpv2.ManagedResourceSpec `json:",inline"`
 	ForProvider              SDKConnectionParameters `json:"forProvider"`
+
+	// InitProvider holds the same fields as forProvider, which are only
+	// applied at resource creation. Crossplane ignores later drift in these
+	// fields against the external resource.
+	// +optional
+	InitProvider SDKConnectionInitParameters `json:"initProvider,omitempty"`
 }
 
 // A SDKConnectionStatus represents the observed state of a SDKConnection.
