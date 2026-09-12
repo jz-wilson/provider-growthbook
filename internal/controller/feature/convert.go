@@ -24,15 +24,51 @@ import (
 )
 
 // createRequest builds the POST body, including the create-only id and
-// valueType.
-func createRequest(id string, p v1alpha1.FeatureParameters) (growthbook.FeatureRequest, error) {
-	req, err := updateRequest(p)
+// valueType. Fields unset in forProvider fall back to initProvider;
+// forProvider wins whenever both set the same field. initProvider fields
+// are only ever consulted here, at creation time.
+func createRequest(id string, p v1alpha1.FeatureParameters, ip v1alpha1.FeatureInitParameters) (growthbook.FeatureRequest, error) {
+	merged := mergeInitProvider(p, ip)
+	req, err := updateRequest(merged)
 	if err != nil {
 		return req, err
 	}
 	req.ID = id
-	req.ValueType = p.ValueType
+	req.ValueType = merged.ValueType
 	return req, nil
+}
+
+// mergeInitProvider fills any forProvider field left unset from the
+// matching initProvider field. forProvider always wins when both are set.
+func mergeInitProvider(p v1alpha1.FeatureParameters, ip v1alpha1.FeatureInitParameters) v1alpha1.FeatureParameters {
+	if p.ValueType == "" && ip.ValueType != nil {
+		p.ValueType = *ip.ValueType
+	}
+	if p.DefaultValue == "" && ip.DefaultValue != nil {
+		p.DefaultValue = *ip.DefaultValue
+	}
+	if p.Description == nil {
+		p.Description = ip.Description
+	}
+	if p.Project == nil {
+		p.Project = ip.Project
+	}
+	if p.Tags == nil {
+		p.Tags = ip.Tags
+	}
+	if p.Archived == nil {
+		p.Archived = ip.Archived
+	}
+	if p.Owner == nil {
+		p.Owner = ip.Owner
+	}
+	if p.Environments == nil {
+		p.Environments = ip.Environments
+	}
+	if p.Rules == nil {
+		p.Rules = ip.Rules
+	}
+	return p
 }
 
 // updateRequest builds the update body from the mutable fields only.
