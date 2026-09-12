@@ -50,4 +50,4 @@ Option 2 (workaround in template): Add a SelfSubjectAccessReview precheck in cmd
 - crossplane-contrib/provider-kafka issue #102 and commit showing CRD watch precheck
 - provider-kafka cmd/provider/main.go canWatchCRD implementation
 - Crossplane v2.4.0 internal/controller/rbac/provider/roles/roles.go
-- Workaround applied in github.com/jz-wilson/provider-growthbook commit df91c09
+- Workaround applied in github.com/jz-wilson/crossplane-provider-growthbook commit df91c09

@@ -52,9 +52,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
-	"github.com/jz-wilson/provider-growthbook/apis"
-	growthbook "github.com/jz-wilson/provider-growthbook/internal/controller"
-	"github.com/jz-wilson/provider-growthbook/internal/version"
+	"github.com/jz-wilson/crossplane-provider-growthbook/apis"
+	growthbook "github.com/jz-wilson/crossplane-provider-growthbook/internal/controller"
+	"github.com/jz-wilson/crossplane-provider-growthbook/internal/version"
 )
 
 func main() {

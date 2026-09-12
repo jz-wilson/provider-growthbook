@@ -22,8 +22,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	v1alpha1 "github.com/jz-wilson/provider-growthbook/apis/sdk/v1alpha1"
-	"github.com/jz-wilson/provider-growthbook/internal/clients/growthbook"
+	v1alpha1 "github.com/jz-wilson/crossplane-provider-growthbook/apis/sdk/v1alpha1"
+	"github.com/jz-wilson/crossplane-provider-growthbook/internal/clients/growthbook"
 )
 
 func ptr[T any](v T) *T { return &v }

@@ -52,5 +52,5 @@ The template in internal/templates/00-apply.yaml.tmpl assumes a bash execution e
 - uptest v2.2.0 internal/templates/00-apply.yaml.tmpl
 - uptest hack/check_endpoints.sh line 4
 - POSIX sh specification (arithmetic expansion, variable expansion, no local keyword)
-- Workaround applied in github.com/jz-wilson/provider-growthbook commit 3a252ca (exporting KUBECTL)
+- Workaround applied in github.com/jz-wilson/crossplane-provider-growthbook commit 3a252ca (exporting KUBECTL)
 - Observed on GitHub Actions ubuntu-24.04, 2026-09-09

@@ -19,8 +19,8 @@ package environment
 import (
 	"sort"
 
-	v1alpha1 "github.com/jz-wilson/provider-growthbook/apis/core/v1alpha1"
-	"github.com/jz-wilson/provider-growthbook/internal/clients/growthbook"
+	v1alpha1 "github.com/jz-wilson/crossplane-provider-growthbook/apis/core/v1alpha1"
+	"github.com/jz-wilson/crossplane-provider-growthbook/internal/clients/growthbook"
 )
 
 // createRequest builds the POST body, including the create-only id and

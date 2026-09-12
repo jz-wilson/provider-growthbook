@@ -1,7 +1,7 @@
 # ====================================================================================
 # Setup Project
 PROJECT_NAME := provider-growthbook
-PROJECT_REPO := github.com/jz-wilson/$(PROJECT_NAME)
+PROJECT_REPO := github.com/jz-wilson/crossplane-provider-growthbook
 
 PLATFORMS ?= linux_amd64 linux_arm64
 -include build/makelib/common.mk
