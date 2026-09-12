@@ -183,6 +183,118 @@ spec:
                 - language
                 - name
                 type: object
+              initProvider:
+                description: |-
+                  InitProvider holds the same fields as forProvider, which are only
+                  applied at resource creation. Crossplane ignores later drift in these
+                  fields against the external resource.
+                properties:
+                  allowedCustomFieldsInMetadata:
+                    description: |-
+                      AllowedCustomFieldsInMetadata limits which custom fields are included
+                      when IncludeCustomFieldsInMetadata is set.
+                    items:
+                      type: string
+                    type: array
+                  encryptPayload:
+                    description: EncryptPayload enables payload encryption for this
+                      connection.
+                    type: boolean
+                  environment:
+                    description: |-
+                      Environment is the id of the GrowthBook environment this connection
+                      serves.
+                    type: string
+                  hashSecureAttributes:
+                    description: |-
+                      HashSecureAttributes hashes secure attributes before they leave the
+                      server.
+                    type: boolean
+                  includeCustomFieldsInMetadata:
+                    description: |-
+                      IncludeCustomFieldsInMetadata includes custom fields in feature
+                      metadata.
+                    type: boolean
+                  includeDraftExperimentRefs:
+                    description: |-
+                      IncludeDraftExperimentRefs includes experiment-ref rules linked to
+                      draft experiments in the SDK payload.
+                    type: boolean
+                  includeDraftExperiments:
+                    description: |-
+                      IncludeDraftExperiments includes draft (not yet running) experiments
+                      in the SDK payload.
+                    type: boolean
+                  includeExperimentNames:
+                    description: IncludeExperimentNames includes experiment names
+                      in the SDK payload.
+                    type: boolean
+                  includeExperimentScheduleInMetadata:
+                    description: |-
+                      IncludeExperimentScheduleInMetadata includes experiment scheduling
+                      info in feature metadata.
+                    type: boolean
+                  includeProjectIdInMetadata:
+                    description: |-
+                      IncludeProjectIdInMetadata includes the project id in feature
+                      metadata.
+                    type: boolean
+                  includeRedirectExperiments:
+                    description: |-
+                      IncludeRedirectExperiments includes URL redirect experiments in the
+                      SDK payload.
+                    type: boolean
+                  includeReferencedPrerequisites:
+                    description: |-
+                      IncludeReferencedPrerequisites carries prerequisite feature flags into
+                      the payload even when they target other projects.
+                    type: boolean
+                  includeRuleIds:
+                    description: IncludeRuleIds includes rule ids in the SDK payload.
+                    type: boolean
+                  includeTagsInMetadata:
+                    description: IncludeTagsInMetadata includes tags in feature metadata.
+                    type: boolean
+                  includeVisualExperiments:
+                    description: |-
+                      IncludeVisualExperiments includes visual editor experiments in the
+                      SDK payload.
+                    type: boolean
+                  language:
+                    description: |-
+                      Language is the SDK language/platform this connection targets, for
+                      example "javascript", "react", "go", or "nodejs".
+                    type: string
+                  name:
+                    description: Name is the human-readable connection name.
+                    type: string
+                  projects:
+                    description: Projects restricts the connection to the given project
+                      ids.
+                    items:
+                      type: string
+                    type: array
+                  proxyEnabled:
+                    description: ProxyEnabled enables the GrowthBook proxy for this
+                      connection.
+                    type: boolean
+                  proxyHost:
+                    description: ProxyHost is the proxy host to use when ProxyEnabled
+                      is true.
+                    type: string
+                  remoteEvalEnabled:
+                    description: RemoteEvalEnabled enables remote evaluation for this
+                      connection.
+                    type: boolean
+                  savedGroupReferencesEnabled:
+                    description: |-
+                      SavedGroupReferencesEnabled enables saved group references in the SDK
+                      payload.
+                    type: boolean
+                  sdkVersion:
+                    description: SDKVersion is the SDK version this connection targets.
+                    type: string
+                type: object
               managementPolicies:
                 default:
                 - '*'
