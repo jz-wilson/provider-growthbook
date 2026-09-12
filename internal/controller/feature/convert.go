@@ -40,13 +40,26 @@ func createRequest(id string, p v1alpha1.FeatureParameters, ip v1alpha1.FeatureI
 
 // mergeInitProvider fills any forProvider field left unset from the
 // matching initProvider field. forProvider always wins when both are set.
+// Split into smaller helpers to keep cyclomatic complexity low.
 func mergeInitProvider(p v1alpha1.FeatureParameters, ip v1alpha1.FeatureInitParameters) v1alpha1.FeatureParameters {
+	mergeValueFields(&p, ip)
+	mergeMetadataFields(&p, ip)
+	return p
+}
+
+// mergeValueFields merges the always-required value fields.
+func mergeValueFields(p *v1alpha1.FeatureParameters, ip v1alpha1.FeatureInitParameters) {
 	if p.ValueType == "" && ip.ValueType != nil {
 		p.ValueType = *ip.ValueType
 	}
 	if p.DefaultValue == "" && ip.DefaultValue != nil {
 		p.DefaultValue = *ip.DefaultValue
 	}
+}
+
+// mergeMetadataFields merges the optional descriptive fields, environments,
+// and rules.
+func mergeMetadataFields(p *v1alpha1.FeatureParameters, ip v1alpha1.FeatureInitParameters) {
 	if p.Description == nil {
 		p.Description = ip.Description
 	}
@@ -68,7 +81,6 @@ func mergeInitProvider(p v1alpha1.FeatureParameters, ip v1alpha1.FeatureInitPara
 	if p.Rules == nil {
 		p.Rules = ip.Rules
 	}
-	return p
 }
 
 // updateRequest builds the update body from the mutable fields only.

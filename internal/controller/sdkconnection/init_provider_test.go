@@ -49,7 +49,7 @@ func TestCreateInitProvider(t *testing.T) {
 			reason: "A field set only in initProvider must be sent on Create.",
 			cr:     sdkConnection(connName, withInitSDKVersion("0.30.0"), withInitEncryptPayload(true)),
 			wantReq: growthbook.SDKConnectionRequest{
-				Name: connName, Language: "javascript", Environment: "production",
+				Name: connName, Language: langJavaScript, Environment: envProduction,
 				SDKVersion: ptr("0.30.0"), EncryptPayload: ptr(true),
 			},
 		},
@@ -60,7 +60,7 @@ func TestCreateInitProvider(t *testing.T) {
 				func(cr *v1alpha1.SDKConnection) { cr.Spec.ForProvider.SDKVersion = ptr("1.0.0") },
 			),
 			wantReq: growthbook.SDKConnectionRequest{
-				Name: connName, Language: "javascript", Environment: "production", SDKVersion: ptr("1.0.0"),
+				Name: connName, Language: langJavaScript, Environment: envProduction, SDKVersion: ptr("1.0.0"),
 			},
 		},
 	}
@@ -87,10 +87,10 @@ func TestCreateInitProvider(t *testing.T) {
 // to a field that was only ever set via initProvider never marks the
 // resource out of date.
 func TestObserveIgnoresInitProviderDrift(t *testing.T) {
-	cr := sdkConnection(connName, withInitEncryptPayload(true), withExternalName("sdk_1"))
+	cr := sdkConnection(connName, withInitEncryptPayload(true), withExternalName(sdkID))
 	client := &fakeClient{get: func(_ context.Context, _ string) (*growthbook.SDKConnection, error) {
 		return &growthbook.SDKConnection{
-			ID: "sdk_1", Name: connName, Languages: []string{"javascript"}, Environment: "production",
+			ID: sdkID, Name: connName, Languages: []string{langJavaScript}, Environment: envProduction,
 			EncryptPayload: false,
 		}, nil
 	}}
@@ -114,9 +114,9 @@ func TestUpdateNeverSendsInitProviderOnlyValues(t *testing.T) {
 	var gotReq growthbook.SDKConnectionRequest
 	client := &fakeClient{update: func(_ context.Context, _ string, req growthbook.SDKConnectionRequest) (*growthbook.SDKConnection, error) {
 		gotReq = req
-		return &growthbook.SDKConnection{ID: "sdk_1", Name: req.Name}, nil
+		return &growthbook.SDKConnection{ID: sdkID, Name: req.Name}, nil
 	}}
-	cr := sdkConnection(connName, withInitSDKVersion("0.30.0"), withInitEncryptPayload(true), withExternalName("sdk_1"))
+	cr := sdkConnection(connName, withInitSDKVersion("0.30.0"), withInitEncryptPayload(true), withExternalName(sdkID))
 
 	e := external{client: client}
 	if _, err := e.Update(context.Background(), cr); err != nil {

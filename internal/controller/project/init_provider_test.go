@@ -70,7 +70,7 @@ func TestCreateInitProvider(t *testing.T) {
 			var gotReq growthbook.ProjectRequest
 			client := &fakeClient{create: func(_ context.Context, req growthbook.ProjectRequest) (*growthbook.Project, error) {
 				gotReq = req
-				return &growthbook.Project{ID: "prj_1", Name: req.Name}, nil
+				return &growthbook.Project{ID: projID, Name: req.Name}, nil
 			}}
 			e := external{client: client}
 			if _, err := e.Create(context.Background(), tc.cr); err != nil {
@@ -88,9 +88,9 @@ func TestCreateInitProvider(t *testing.T) {
 // resource out of date, and is not copied into initProvider by
 // late-initialization.
 func TestObserveIgnoresInitProviderDrift(t *testing.T) {
-	cr := project(projectName, withInitPublicID("init-web"), withExternalName("prj_1"))
+	cr := project(projectName, withInitPublicID("init-web"), withExternalName(projID))
 	client := &fakeClient{get: func(_ context.Context, _ string) (*growthbook.Project, error) {
-		return &growthbook.Project{ID: "prj_1", Name: projectName, PublicID: "changed-out-from-under-us"}, nil
+		return &growthbook.Project{ID: projID, Name: projectName, PublicID: "changed-out-from-under-us"}, nil
 	}}
 
 	e := external{client: client}
@@ -113,9 +113,9 @@ func TestUpdateNeverSendsInitProviderOnlyValues(t *testing.T) {
 	var gotReq growthbook.ProjectRequest
 	client := &fakeClient{update: func(_ context.Context, _ string, req growthbook.ProjectRequest) (*growthbook.Project, error) {
 		gotReq = req
-		return &growthbook.Project{ID: "prj_1", Name: projectName}, nil
+		return &growthbook.Project{ID: projID, Name: projectName}, nil
 	}}
-	cr := project(projectName, withInitDescription("init desc"), withInitPublicID("init-web"), withExternalName("prj_1"))
+	cr := project(projectName, withInitDescription("init desc"), withInitPublicID("init-web"), withExternalName(projID))
 
 	e := external{client: client}
 	if _, err := e.Update(context.Background(), cr); err != nil {
@@ -127,7 +127,7 @@ func TestUpdateNeverSendsInitProviderOnlyValues(t *testing.T) {
 	if gotReq.PublicID != nil {
 		t.Errorf("Update must not send initProvider-only publicId: %+v", gotReq)
 	}
-	if meta.GetExternalName(cr) != "prj_1" {
+	if meta.GetExternalName(cr) != projID {
 		t.Errorf("unexpected external name mutation: %q", meta.GetExternalName(cr))
 	}
 }

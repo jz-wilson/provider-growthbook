@@ -176,13 +176,13 @@ func TestRulesUpToDate(t *testing.T) {
 				Type: "experiment-ref", AllEnvironments: ptr(true), ExperimentID: ptr("exp_1"),
 				Variations: []v1alpha1.FeatureRuleVariation{
 					{VariationID: "1", Value: valTrue},
-					{VariationID: "0", Value: "false"},
+					{VariationID: "0", Value: valFalse},
 				},
 			}},
 			got: []growthbook.FeatureRule{{
 				Type: "experiment-ref", AllEnvironments: true, ExperimentID: "exp_1", Enabled: ptr(true),
 				Variations: []growthbook.FeatureRuleVariation{
-					{VariationID: "0", Value: "false"},
+					{VariationID: "0", Value: valFalse},
 					{VariationID: "1", Value: valTrue},
 				},
 			}},

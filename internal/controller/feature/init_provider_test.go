@@ -95,9 +95,9 @@ func TestObserveIgnoresInitProviderDrift(t *testing.T) {
 	cr := newFeature(withInitDescription("init desc"), withInitRules(initForceRule("true")))
 	client := &fakeClient{get: func(_ context.Context, _ string) (*growthbook.Feature, error) {
 		return &growthbook.Feature{
-			ID: featureID, ValueType: "boolean", DefaultValue: valTrue,
+			ID: featureID, ValueType: valTypeBoolean, DefaultValue: valTrue,
 			Description: "changed out from under us",
-			Rules:       []growthbook.FeatureRule{{Type: ruleTypeForce, Value: "false"}, {Type: ruleTypeForce, Value: "also different"}},
+			Rules:       []growthbook.FeatureRule{{Type: ruleTypeForce, Value: valFalse}, {Type: ruleTypeForce, Value: "also different"}},
 		}, nil
 	}}
 
@@ -123,7 +123,7 @@ func TestUpdateNeverSendsInitProviderOnlyValues(t *testing.T) {
 	var gotReq growthbook.FeatureRequest
 	client := &fakeClient{update: func(_ context.Context, _ string, req growthbook.FeatureRequest) (*growthbook.Feature, error) {
 		gotReq = req
-		return &growthbook.Feature{ID: featureID, ValueType: "boolean", DefaultValue: valTrue}, nil
+		return &growthbook.Feature{ID: featureID, ValueType: valTypeBoolean, DefaultValue: valTrue}, nil
 	}}
 	cr := newFeature(withInitDescription("init desc"), withInitRules(initForceRule("true")))
 

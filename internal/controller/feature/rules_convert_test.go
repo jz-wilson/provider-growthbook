@@ -90,7 +90,7 @@ func TestRulesRequest(t *testing.T) {
 				AllEnvironments: ptr(true),
 				ExperimentID:    ptr("exp_1"),
 				Variations: []v1alpha1.FeatureRuleVariation{
-					{VariationID: "0", Value: "false"},
+					{VariationID: "0", Value: valFalse},
 					{VariationID: "1", Value: valTrue},
 				},
 			}},
@@ -100,7 +100,7 @@ func TestRulesRequest(t *testing.T) {
 				AllEnvironments: true,
 				ExperimentID:    "exp_1",
 				Variations: []growthbook.FeatureRuleVariation{
-					{VariationID: "0", Value: "false"},
+					{VariationID: "0", Value: valFalse},
 					{VariationID: "1", Value: valTrue},
 				},
 			}},
