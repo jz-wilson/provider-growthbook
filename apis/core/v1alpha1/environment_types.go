@@ -54,6 +54,37 @@ type EnvironmentParameters struct {
 	Parent *string `json:"parent,omitempty"`
 }
 
+// EnvironmentInitParameters are the fields of a GrowthBook Environment that
+// are applied only when the resource is created. Crossplane ignores later
+// changes to these fields in the external resource; use them together with
+// managementPolicies that omit LateInitialize to avoid conflicts with
+// forProvider. Any field also set in forProvider is overridden by
+// forProvider.
+type EnvironmentInitParameters struct {
+	// Description is free text shown in the GrowthBook UI.
+	// +optional
+	Description *string `json:"description,omitempty"`
+
+	// ToggleOnList shows this environment's toggle on the feature list page.
+	// +optional
+	ToggleOnList *bool `json:"toggleOnList,omitempty"`
+
+	// DefaultState is the initial on/off state new features get in this
+	// environment.
+	// +optional
+	DefaultState *bool `json:"defaultState,omitempty"`
+
+	// Projects restricts the environment to these project ids. Empty means
+	// all projects. Compared as a set.
+	// +optional
+	Projects []string `json:"projects,omitempty"`
+
+	// Parent is an environment id to inherit feature rules from. Create-only
+	// and requires a GrowthBook Enterprise license.
+	// +optional
+	Parent *string `json:"parent,omitempty"`
+}
+
 // EnvironmentObservation are the observable fields of a GrowthBook Environment.
 type EnvironmentObservation struct {
 	// ID is the environment id as stored by GrowthBook.
@@ -67,6 +98,12 @@ type EnvironmentObservation struct {
 type EnvironmentSpec struct {
 	xpv2.ManagedResourceSpec `json:",inline"`
 	ForProvider              EnvironmentParameters `json:"forProvider"`
+
+	// InitProvider holds the same fields as forProvider, which are only
+	// applied at resource creation. Crossplane ignores later drift in these
+	// fields against the external resource.
+	// +optional
+	InitProvider EnvironmentInitParameters `json:"initProvider,omitempty"`
 }
 
 // An EnvironmentStatus represents the observed state of an Environment.
